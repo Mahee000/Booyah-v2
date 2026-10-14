@@ -106,6 +106,28 @@ def get_default_room_actions_for_mode(mode: str) -> List[Dict[str, Any]]:
     steps = MODE_DEFAULT_ACTIONS.get(mode.upper(), [])
     return copy.deepcopy(steps)
 
+def get_default_game_mode_type_for_preset(preset_id: str, preset_name: str = "", mode: str = "LW") -> str:
+    """
+    Automatically maps the preset/sub-preset to its exact ZVY Admin tournament mode title:
+    - 'ltw_lw', 'ltw_lw_2', or any name containing 'ltw' / 'lose' -> 'Lose To Win'
+    - 'std_cs', 'hs_cs', or mode == 'CS' -> 'Clash Squad 4V4'
+    - 'std_lw', 'hs_lw', or mode == 'LW' -> 'Lone Wolf 2V2'
+    - mode == 'BR' -> 'BR E-Sports PRO League'
+    """
+    p_id = (preset_id or "").lower()
+    p_name = (preset_name or "").lower()
+    m = (mode or "").upper()
+
+    if "ltw" in p_id or "ltw" in p_name or "lose" in p_id or "lose" in p_name:
+        return "Lose To Win"
+    if m == "CS" or "cs" in p_id or "clash" in p_name:
+        return "Clash Squad 4V4"
+    if m == "LW" or "wolf" in p_name or "lw" in p_id:
+        if "1v1" in p_name or "1 vs 1" in p_name:
+            return "Lone Wolf 1V1"
+        return "Lone Wolf 2V2"
+    return "Battle Royale"
+
 # Clean built-in fallback presets with 4 (crop regions), 6 (sleepTime), and 8 (logInterval) implemented
 DEFAULT_PRESETS = {
     # BR Presets

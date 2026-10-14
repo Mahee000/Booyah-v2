@@ -436,7 +436,7 @@ class SidebarInspector(QFrame):
         # When changing preset or mode, reset node-level overrides so the new preset's
         # exact crops, actions, sleep time, log cadence, etc. take effect immediately
         if reset_all or self.current_serial:
-            from src.core.preset_service import get_default_room_actions_for_mode
+            from src.core.preset_service import get_default_room_actions_for_mode, get_default_game_mode_type_for_preset
             cfg = get_node_config(self.current_serial)
             if p:
                 cfg["cropX"] = p.get("cropX")
@@ -452,6 +452,8 @@ class SidebarInspector(QFrame):
                 cfg["logInterval"] = p.get("logInterval", 15)
                 cfg["logOffset"] = p.get("logOffset", 0)
                 cfg["autoHostActions"] = p.get("autoHostActions") or get_default_room_actions_for_mode(mode)
+                # Automatically associate sub-preset with its tournament game mode
+                cfg["gameModeType"] = get_default_game_mode_type_for_preset(preset_id, p.get("name", ""), mode)
                 save_node_config(self.current_serial, cfg)
 
         self._auto_save_if_loaded()

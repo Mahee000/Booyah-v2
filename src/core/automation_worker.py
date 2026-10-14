@@ -247,43 +247,25 @@ class EmulatorAutomationWorker(QThread):
                 # Extract Winners if Lone Wolf / Clash Squad / Lose To Win
                 detected_winners_str = ""
                 winner_details: Optional[Dict[str, Any]] = None
+                game_mode_label = self.config.get("gameModeType")
+                if not game_mode_label:
+                    from src.core.preset_service import get_default_game_mode_type_for_preset
+                    game_mode_label = get_default_game_mode_type_for_preset(
+                        self.config.get("preset", ""),
+                        mode=mode
+                    )
+
                 if mode in ("LW", "CS") or self.config.get("detectWinners", False):
                     try:
                         from src.core.winner_detector import LoneWolfWinnerDetector
                         detector = LoneWolfWinnerDetector()
-                        game_mode_label = self.config.get("gameModeType", "Lone Wolf")
                         # Perform winner detection directly on the cropped scoreboard frame
                         winner_details = detector.determine_match_winners(upload_frame, game_mode=game_mode_label)
                         winners_list = winner_details.get("winners", [])
                         if winners_list:
                             detected_winners_str = ", ".join(winners_list)
                             win_tag = "[LTW Losers]" if winner_details.get("is_ltw") else "[Winners]"
-                            self.log_message.emit(self.serial, f"{win_tag} Detected: {detected_winners_str}", "MATCH")
-
-                            # Trigger Auto Rewards on Master Emulator if enabled
-                            if self.config.get("autoRewards", False):
-                                master_serial = self.config.get("autoRewardMaster") or self.config.get("autoHostMaster")
-                                if master_serial and master_serial != "None":
-                                    self.log_message.emit(
-                                        self.serial,
-                                        f"Initiating Auto Rewards for [{detected_winners_str}] on Master {master_serial}...",
-                                        "REWARD"
-                                    )
-                                    try:
-                                        from src.core.master_service import MasterCoordinatorService
-                                        m_coordinator = MasterCoordinatorService(self.service)
-                                        m_coordinator.auto_reward_match(
-                                            game_serial=self.serial,
-                                            master_serial=master_serial,
-                                            winners=winners_list,
-                                            game_mode=game_mode_label,
-                                            interval_m=int(self.config.get("logInterval", 15)),
-                                            offset_m=int(self.config.get("logOffset", 0)),
-                                            is_ltw=bool(winner_details.get("is_ltw", False)),
-                                            log_callback=lambda msg, lvl: self.log_message.emit(self.serial, msg, lvl)
-                                        )
-                                    except Exception as re:
-                                        self.log_message.emit(self.serial, f"Auto Rewards error: {re}", "ERROR")
+                            self.log_message.emit(self.serial, f"{win_tag} Detected: {detected_winners_str} ({game_mode_label})", "MATCH")
                         else:
                             self.log_message.emit(self.serial, "Scoreboard parsed: No clear winning nicknames identified", "SCAN")
                     except Exception as we:
@@ -379,6 +361,32 @@ class EmulatorAutomationWorker(QThread):
                     if self.config.get("autoCloseRoom", False):
                         self.msleep(1500)
                         self._perform_close_room_flow()
+
+                # Trigger Auto Rewards on Master Emulator after returning to lobby
+                if self.config.get("autoRewards", False) and winner_details and winner_details.get("winners"):
+                    winners_list = winner_details.get("winners", [])
+                    master_serial = self.config.get("autoRewardMaster") or self.config.get("autoHostMaster")
+                    if master_serial and master_serial != "None":
+                        self.log_message.emit(
+                            self.serial,
+                            f"Initiating Auto Rewards for [{detected_winners_str}] on Master {master_serial} (Post-Lobby)...",
+                            "REWARD"
+                        )
+                        try:
+                            from src.core.master_service import MasterCoordinatorService
+                            m_coordinator = MasterCoordinatorService(self.service)
+                            m_coordinator.auto_reward_match(
+                                game_serial=self.serial,
+                                master_serial=master_serial,
+                                winners=winners_list,
+                                game_mode=game_mode_label,
+                                interval_m=int(self.config.get("logInterval", 15)),
+                                offset_m=int(self.config.get("logOffset", 0)),
+                                is_ltw=bool(winner_details.get("is_ltw", False)),
+                                log_callback=lambda msg, lvl: self.log_message.emit(self.serial, msg, lvl)
+                            )
+                        except Exception as re:
+                            self.log_message.emit(self.serial, f"Auto Rewards error: {re}", "ERROR")
 
                 # Cooldown / Sleep Time
                 sleep_min = float(self.config.get("sleepTime", 0))

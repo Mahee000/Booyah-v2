@@ -567,5 +567,151 @@
     "sleepTime": 20,
     "logInterval": 30,
     "logOffset": 0
+  },
+  "127.0.0.1:5596": {
+    "customName": "",
+    "mode": "CS",
+    "preset": "std_cs",
+    "webhook": "https://ptb.discord.com/api/webhooks/1499045182522527865/sXgJ1eTPvF6ZC-5OEHvwVLduGYf_r8Q702yHx7dpuKphQ4Vfc-q7hDRyrKN4UILd7UMe",
+    "autoLobbyReturn": true,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": 0.88,
+    "lobbyReturnY": 0.92,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": 0.0,
+    "cropY": 0.3,
+    "cropW": 1.0,
+    "cropH": 0.5,
+    "crop2X": 0.0,
+    "crop2Y": 0.3,
+    "crop2W": 1.0,
+    "crop2H": 0.5,
+    "captureDelay": 1.0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "autoRoomCreation": false,
+    "autoHostLeadTime": 5,
+    "autoHostActions": [
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.829,
+        "y": 0.835
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.516,
+        "y": 0.895
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.891,
+        "y": 0.877
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.756,
+        "y": 0.348
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.378,
+        "y": 0.418
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.039,
+        "y": 0.296
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.462,
+        "y": 0.212
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.491,
+        "y": 0.848
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.509,
+        "y": 0.757
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.481,
+        "y": 0.512
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.61,
+        "y": 0.628
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.284,
+        "y": 0.144
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.365,
+        "y": 0.267
+      },
+      {
+        "type": "text",
+        "delay": 1.0,
+        "text": "123",
+        "isPassword": true,
+        "role": "room_password"
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.935,
+        "y": 0.924
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.541,
+        "y": 0.881
+      }
+    ],
+    "autoCloseRoom": false,
+    "detectWinners": true,
+    "autoRewards": false,
+    "gameModeType": "Clash Squad 4V4",
+    "autoRewardMaster": "127.0.0.1:5556",
+    "sleepTime": 5,
+    "logInterval": 20,
+    "logOffset": 0
   }
 }

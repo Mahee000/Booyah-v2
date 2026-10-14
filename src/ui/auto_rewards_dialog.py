@@ -99,14 +99,14 @@ class AutoRewardsDialog(QDialog):
 
         vbox.addWidget(toggle_frame)
 
-        # Mode Selection Card
+        # Mode Selection Card (Auto-resolved from Preset)
         mode_card = QFrame()
         mode_card.setStyleSheet("QFrame { background-color: #161b22; border: 1px solid #262c36; border-radius: 6px; }")
         mc_layout = QVBoxLayout(mode_card)
         mc_layout.setContentsMargins(14, 12, 14, 12)
         mc_layout.setSpacing(8)
 
-        lbl_mode = QLabel("Target Tournament Game Mode:")
+        lbl_mode = QLabel("Target Tournament Game Mode (Preset-Controlled):")
         lbl_mode.setStyleSheet("color: #c9d1d9; font-size: 12px; font-weight: 600;")
         mc_layout.addWidget(lbl_mode)
 
@@ -117,14 +117,29 @@ class AutoRewardsDialog(QDialog):
             "Clash Squad 4V4",
             "Lose To Win (LTW - Reward Losers)"
         ])
-        saved_mode = self.cfg.get("gameModeType", "Lone Wolf 2V2")
-        idx = self.mode_combo.findText(saved_mode)
-        if idx >= 0:
-            self.mode_combo.setCurrentIndex(idx)
-        elif "lose" in saved_mode.lower() or "ltw" in saved_mode.lower():
+
+        # Automatically determine mode from node's active preset
+        from src.core.preset_service import get_default_game_mode_type_for_preset
+        preset_id = self.cfg.get("preset", "")
+        preset_mode = self.cfg.get("mode", "LW")
+        preset_derived = get_default_game_mode_type_for_preset(preset_id, mode=preset_mode)
+
+        saved_mode = self.cfg.get("gameModeType") or preset_derived
+        if "lose" in saved_mode.lower() or "ltw" in saved_mode.lower():
             self.mode_combo.setCurrentIndex(3)
+        elif "clash" in saved_mode.lower() or "cs" in saved_mode.lower():
+            self.mode_combo.setCurrentIndex(2)
+        elif "1v1" in saved_mode.lower():
+            self.mode_combo.setCurrentIndex(1)
+        else:
+            self.mode_combo.setCurrentIndex(0)
+
         self.mode_combo.setFixedHeight(32)
         mc_layout.addWidget(self.mode_combo)
+
+        mode_hint = QLabel(f"Preset '{preset_id or preset_mode}' automatically sets mode to '{self.mode_combo.currentText()}'.")
+        mode_hint.setStyleSheet("color: #6ee7b7; font-size: 11px;")
+        mc_layout.addWidget(mode_hint)
         vbox.addWidget(mode_card)
 
         # Live Test OCR Section

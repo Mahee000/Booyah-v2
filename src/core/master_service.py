@@ -480,20 +480,37 @@ class MasterCoordinatorService:
                 log(f"Resolved winning team group: {winning_group}", "REWARD")
 
                 # 5. Filter Players To Reward:
-                # User Requirement: If a player was NOT mentioned in-game (e.g. 4v3 where only 3 played/won),
-                # ONLY the actual mentioned/active winning players are rewarded!
-                # If direct name matches exist, reward only those belonging to the winning group.
+                # User Rules:
+                # - If the scoreboard shows e.g. 3 winners (4v3), ONLY 3 players receive rewards.
+                # - If player names match directly via OCR similarity, reward those matched players in the winning group.
+                # - If names are stylized/unmatched but registered players exist in that winning group,
+                #   reward up to the exact count of winners detected on the scoreboard (e.g. 3 winners -> 3 players rewarded).
                 players_to_reward = []
-                if matched_players:
-                    # Only reward players who actually matched the in-game scoreboard winners and belong to winning group
-                    players_to_reward = [p for p in matched_players if p["slot"] in winning_group]
-                    if not players_to_reward:
-                        players_to_reward = matched_players
-                else:
-                    # Fallback: if names were highly stylized and OCR missed exact matching, reward winning group members present
-                    players_to_reward = [p for p in registered_players if p["slot"] in winning_group]
+                expected_winner_count = len(winners)
 
-                log(f"Final players to reward ({len(players_to_reward)} players): {[(p['slot'], p['name']) for p in players_to_reward]}", "REWARD")
+                # Players registered in the determined winning group
+                group_registered_players = [p for p in registered_players if p["slot"] in winning_group]
+
+                if matched_players:
+                    # Directly matched players in the winning group
+                    matched_in_group = [p for p in matched_players if p["slot"] in winning_group]
+                    players_to_reward = matched_in_group
+
+                    # If some names in the winning group didn't match OCR (e.g. fancy fonts),
+                    # but the detected winner count is higher, fill from the remaining registered players in the group
+                    if len(players_to_reward) < expected_winner_count:
+                        rewarded_slots = {p["slot"] for p in players_to_reward}
+                        for p in group_registered_players:
+                            if p["slot"] not in rewarded_slots:
+                                players_to_reward.append(p)
+                                if len(players_to_reward) >= expected_winner_count:
+                                    break
+                else:
+                    # Fallback: OCR names could not be matched directly due to font/symbols,
+                    # reward registered players from the winning group up to the detected winner count
+                    players_to_reward = group_registered_players[:expected_winner_count] if expected_winner_count > 0 else group_registered_players
+
+                log(f"Final players to reward ({len(players_to_reward)} players, expected {expected_winner_count}): {[(p['slot'], p['name']) for p in players_to_reward]}", "REWARD")
 
                 # 6. Execute Edit -> Winner -> Save on each rewarded player
                 for p in players_to_reward:

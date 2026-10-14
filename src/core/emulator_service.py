@@ -62,14 +62,50 @@ class EmulatorService:
             logger.error(f"Manual connect to {addr} failed: {e}")
             return False, str(e)
 
-    def get_connected_devices(self) -> List[Dict[str, str]]:
+    def scan_active_ports(self):
         """
-        Discovers all connected emulators using the exact Booyah port mapping:
+        Fast TCP sweep of standard emulator ports (5555-5595) to auto-reconnect
+        instances that crashed, restarted, or went offline, just like the old Booyah app.
+        """
+        import socket
+        active_ports = []
+        # Check standard emulator port ranges (BlueStacks, LDPlayer, MEmu, Nox)
+        for port in range(5555, 5600, 1):
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(0.04)  # 40ms timeout for instant response on localhost
+            try:
+                res = s.connect_ex(('127.0.0.1', port))
+                if res == 0:
+                    active_ports.append(port)
+            except Exception:
+                pass
+            finally:
+                s.close()
+
+        # Connect any active port not yet connected or dropped offline
+        for p in active_ports:
+            try:
+                subprocess.run(
+                    [self.adb_path, "connect", f"127.0.0.1:{p}"],
+                    capture_output=True, timeout=1.5
+                )
+            except Exception:
+                pass
+
+    def get_connected_devices(self, auto_scan: bool = True) -> List[Dict[str, str]]:
+        """
+        Discovers all connected emulators:
+        - Automatically probes localhost emulator ports to restore offline/disconnected emulators
         - Maps emulator-XXXX (console port XXXX) to adb port (XXXX + 1).
         - Maps TCP tunnel 127.0.0.1:YYYY directly to adb port YYYY.
-        - Deduplicates identical instances while cleanly preserving standalone
-          instances (e.g. 127.0.0.1:5595).
+        - Deduplicates identical instances while cleanly preserving standalone instances.
         """
+        if auto_scan:
+            try:
+                self.scan_active_ports()
+            except Exception as se:
+                logger.debug(f"Port scan exception: {se}")
+
         try:
             proc = subprocess.run(
                 [self.adb_path, "devices", "-l"],
@@ -89,6 +125,11 @@ class EmulatorService:
                     serial = parts[0]
                     state = parts[1]
                     if state.lower() == "offline":
+                        # Disconnect offline ghost sockets so they can cleanly reconnect
+                        try:
+                            subprocess.run([self.adb_path, "disconnect", serial], capture_output=True, timeout=1)
+                        except Exception:
+                            pass
                         continue
 
                     model = "Android Emulator"
@@ -233,6 +274,30 @@ class EmulatorService:
             return True
         except Exception as e:
             logger.error(f"Input text failed on {serial}: {e}")
+            return False
+
+    def keyevent(self, serial: str, keycode: int) -> bool:
+        """Sends an Android keyevent (e.g. 4 for BACK, 66 for ENTER, 67 for DEL)"""
+        try:
+            subprocess.run(
+                [self.adb_path, "-s", serial, "shell", "input", "keyevent", str(keycode)],
+                capture_output=True, timeout=5
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Keyevent {keycode} failed on {serial}: {e}")
+            return False
+
+    def clear_field(self, serial: str, count: int = 15) -> bool:
+        """Clears text field by moving cursor right and sending backspaces"""
+        try:
+            # Move cursor to end (keyevent 21/22) and backspace
+            subprocess.run([self.adb_path, "-s", serial, "shell", "input", "keyevent", "22"], capture_output=True, timeout=2)
+            dels = ["67"] * count
+            subprocess.run([self.adb_path, "-s", serial, "shell", "input", "keyevent"] + dels, capture_output=True, timeout=4)
+            return True
+        except Exception as e:
+            logger.error(f"Clear field failed on {serial}: {e}")
             return False
 
 

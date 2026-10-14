@@ -454,6 +454,52 @@ class EmulatorAutomationWorker(QThread):
 
             if self._is_running:
                 self.log_message.emit(self.serial, "AUTO_HOST: Room Creation sequence completed successfully.", "SUCCESS")
+                
+                # Check if Master Emulator sync is configured
+                master_serial = self.config.get("autoHostMaster", "").strip()
+                if master_serial and master_serial.lower() != "none":
+                    self.log_message.emit(self.serial, f"MASTER_CONNECT: Connecting with Master Emulator [{master_serial}]...", "MASTER")
+                    try:
+                        from src.core.master_service import MasterCoordinatorService
+                        master_svc = MasterCoordinatorService(self.service)
+                        
+                        # Extract password from text step if defined
+                        room_pw = ""
+                        for step in steps:
+                            if step.get("type") == "text":
+                                room_pw = str(step.get("text", "")).strip()
+                                break
+                        
+                        # Read Room ID from clipboard or screen
+                        room_id = ""
+                        try:
+                            from PyQt6.QtWidgets import QApplication
+                            cb = QApplication.clipboard()
+                            if cb:
+                                raw_cb = cb.text().strip()
+                                m = re.search(r'\b\d{5,10}\b', raw_cb)
+                                if m:
+                                    room_id = m.group(0)
+                        except Exception:
+                            pass
+                        
+                        game_mode_label = self.config.get("gameModeType", "Lone Wolf 2V2")
+                        interval_m = int(self.config.get("logInterval", 15))
+                        offset_m = int(self.config.get("logOffset", 0))
+
+                        master_svc.dispatch_room_credentials(
+                            game_serial=self.serial,
+                            master_serial=master_serial,
+                            room_id=room_id,
+                            password=room_pw,
+                            game_mode=game_mode_label,
+                            interval_m=interval_m,
+                            offset_m=offset_m,
+                            log_callback=lambda msg, lvl: self.log_message.emit(self.serial, f"MASTER: {msg}", lvl)
+                        )
+                    except Exception as me:
+                        logger.error(f"Failed to synchronize with Master Emulator: {me}")
+                        self.log_message.emit(self.serial, f"MASTER ERROR: {me}", "ERROR")
         finally:
             self.is_executing_sequence = False
 

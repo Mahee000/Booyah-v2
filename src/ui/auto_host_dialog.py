@@ -401,9 +401,9 @@ class AutoHostDialog(QDialog):
         sched_card.setStyleSheet("QFrame#SchedCard { background-color: #161b22; border: 1px solid #262c36; border-radius: 6px; }")
         s_layout = QVBoxLayout(sched_card)
         s_layout.setContentsMargins(14, 12, 14, 12)
-        s_layout.setSpacing(8)
+        s_layout.setSpacing(10)
 
-        s_title = QLabel("MATCH TIME SCHEDULER")
+        s_title = QLabel("MATCH TIME SCHEDULER & MASTER EMULATOR")
         s_title.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;")
         s_layout.addWidget(s_title)
 
@@ -424,7 +424,39 @@ class AutoHostDialog(QDialog):
         lead_row.addStretch()
         s_layout.addLayout(lead_row)
 
-        sched_hint = QLabel("Triggers the sequence automatically when within this lead time of the next scheduled match slot.")
+        # Master Controller Emulator Row
+        master_row = QHBoxLayout()
+        master_row.setSpacing(10)
+        master_lbl = QLabel("Master / Reward Emulator:")
+        master_lbl.setStyleSheet("color: #38bdf8; font-size: 12px; font-weight: 600;")
+        master_row.addWidget(master_lbl)
+
+        from PyQt6.QtWidgets import QComboBox
+        self.master_combo = QComboBox()
+        self.master_combo.addItem("None (Standalone Node)", "None")
+        try:
+            connected = self.service.get_connected_devices()
+            for dev in connected:
+                d_serial = dev["serial"]
+                if d_serial != self.serial:
+                    self.master_combo.addItem(f"{dev.get('alias', d_serial)} ({d_serial})", d_serial)
+        except Exception:
+            pass
+        
+        saved_master = self.config.get("autoHostMaster", "None")
+        idx = self.master_combo.findData(saved_master)
+        if idx >= 0:
+            self.master_combo.setCurrentIndex(idx)
+        self.master_combo.setFixedHeight(30)
+        self.master_combo.setMinimumWidth(220)
+        master_row.addWidget(self.master_combo)
+        master_row.addStretch()
+        s_layout.addLayout(master_row)
+
+        sched_hint = QLabel(
+            "When room creation completes, Room ID and Password will be automatically copied "
+            "and synchronized to the selected Master Emulator via OCR."
+        )
         sched_hint.setWordWrap(True)
         sched_hint.setStyleSheet("color: #8b949e; font-size: 11px;")
         s_layout.addWidget(sched_hint)
@@ -684,5 +716,6 @@ class AutoHostDialog(QDialog):
         self._sync_actions_from_ui()
         self.config["autoHostActions"] = self.actions
         self.config["autoHostLeadTime"] = self.lead_time_spin.value()
+        self.config["autoHostMaster"] = self.master_combo.currentData()
         save_node_config(self.serial, self.config)
         self.accept()

@@ -1,0 +1,14 @@
+{
+  "volume": 0.25,
+  "volume_index": 1,
+  "audio_enabled": true,
+  "closeRoomX": 0.982,
+  "closeRoomY": 0.046,
+  "closeRoomDelay": 8.0,
+  "confirmCloseX": 0.873,
+  "confirmCloseY": 0.621,
+  "confirmCloseDelay": 4.0,
+  "extraCloseX": 0.975,
+  "extraCloseY": 0.033,
+  "extraCloseDelay": 2.0
+}

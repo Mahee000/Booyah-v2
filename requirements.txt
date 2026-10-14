@@ -1,0 +1,16 @@
+# Core Application Framework
+PyQt6>=6.8.0
+
+# OCR & AI Detection Engine
+paddleocr>=2.10.0
+paddlepaddle>=2.6.2
+onnxruntime>=1.20.0
+numpy>=2.0.0
+opencv-python>=4.10.0
+
+# Image & Data Processing
+pillow>=11.0.0
+
+# Networking & Discord Integration
+requests>=2.32.0
+adbutils>=2.11.0

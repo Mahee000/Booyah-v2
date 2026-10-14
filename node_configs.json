@@ -1,0 +1,424 @@
+{
+  "test-serial-001": {
+    "customName": "Audit Host",
+    "mode": "CS",
+    "preset": "std_cs",
+    "webhook": "https://discord.com/api/test",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0
+  },
+  "emulator-5574": {
+    "customName": "BR",
+    "mode": "BR",
+    "preset": "br_pro_league",
+    "webhook": "https://ptb.discord.com/api/webhooks/1496127810979500186/lc5Vfn37uFuGd8c0G1y6X7_xemEBymesVII1vwa0sVGLhlhiZ4BKNv_CQoVvqzYEknbC",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": 0.87,
+    "lobbyReturnY": 0.9,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": 0.02,
+    "cropY": 0.2,
+    "cropW": 0.54,
+    "cropH": 0.26,
+    "crop2X": 0.03,
+    "crop2Y": 0.22,
+    "crop2W": 0.93,
+    "crop2H": 0.66,
+    "captureDelay": 1.0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "autoRoomCreation": false,
+    "autoHostLeadTime": 5,
+    "autoHostActions": [
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.829,
+        "y": 0.835
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.516,
+        "y": 0.895
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.891,
+        "y": 0.877
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.756,
+        "y": 0.348
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.367,
+        "y": 0.473
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.039,
+        "y": 0.296
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.462,
+        "y": 0.212
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.491,
+        "y": 0.848
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.509,
+        "y": 0.757
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.481,
+        "y": 0.512
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.61,
+        "y": 0.628
+      }
+    ],
+    "autoCloseRoom": false,
+    "detectWinners": true,
+    "sleepTime": 20,
+    "logInterval": 30,
+    "logOffset": 0
+  },
+  "127.0.0.1:5595": {
+    "customName": "Clash Squad",
+    "mode": "CS",
+    "preset": "std_cs",
+    "webhook": "https://ptb.discord.com/api/webhooks/1499045182522527865/sXgJ1eTPvF6ZC-5OEHvwVLduGYf_r8Q702yHx7dpuKphQ4Vfc-q7hDRyrKN4UILd7UMe",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 2.0,
+    "lobbyReturnX": 0.87,
+    "lobbyReturnY": 0.92,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": 0.0,
+    "cropY": 0.3,
+    "cropW": 1.0,
+    "cropH": 0.5,
+    "crop2X": 0.03,
+    "crop2Y": 0.22,
+    "crop2W": 0.93,
+    "crop2H": 0.66,
+    "captureDelay": 1.0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "autoRoomCreation": false,
+    "autoHostLeadTime": 5,
+    "autoHostActions": [
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.829,
+        "y": 0.835
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.516,
+        "y": 0.895
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.891,
+        "y": 0.877
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.756,
+        "y": 0.348
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.378,
+        "y": 0.418
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.039,
+        "y": 0.296
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.462,
+        "y": 0.212
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.491,
+        "y": 0.848
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.509,
+        "y": 0.757
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.481,
+        "y": 0.512
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.61,
+        "y": 0.628
+      }
+    ],
+    "autoCloseRoom": false,
+    "sleepTime": 5,
+    "logInterval": 20,
+    "logOffset": 0,
+    "detectWinners": true
+  },
+  "emulator-5584": {
+    "customName": "",
+    "mode": "BR",
+    "preset": "br_pro_league",
+    "webhook": "https://ptb.discord.com/api/webhooks/1504582155693719695/oFxLANUuiR7KU5bKexKFYv8oOGhXN3qHVc_1O5W2_qNdUv_WZtF4Qp0fNEONAxiHsMTK",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": null,
+    "lobbyReturnY": null,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": null,
+    "cropY": null,
+    "cropW": null,
+    "cropH": null,
+    "crop2X": 0.03,
+    "crop2Y": 0.22,
+    "crop2W": 0.93,
+    "crop2H": 0.66,
+    "captureDelay": 1.0,
+    "esportsMode": true,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "sleepTime": 20,
+    "logInterval": 30,
+    "logOffset": 0
+  },
+  "emulator-5554": {
+    "customName": "",
+    "mode": "BR",
+    "preset": "br_solo",
+    "webhook": "https://ptb.discord.com/api/webhooks/1524848505682923562/Gk5qks0oYLhhXQUvqXM4zmo1Tcik00DH4uJerCcl66n_WRyXBrR2Iu95h3ZIf26S3ezX",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": null,
+    "lobbyReturnY": null,
+    "cropX": null,
+    "cropY": null,
+    "cropW": null,
+    "cropH": null,
+    "scrollCount": 0,
+    "crop2X": 0.03,
+    "crop2Y": 0.22,
+    "crop2W": 0.93,
+    "crop2H": 0.66,
+    "sleepTime": 20,
+    "logInterval": 30,
+    "logOffset": 0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ]
+  },
+  "127.0.0.1:5575": {
+    "customName": "",
+    "mode": "LW",
+    "preset": "std_lw",
+    "webhook": "https://ptb.discord.com/api/webhooks/1496127810979500186/lc5Vfn37uFuGd8c0G1y6X7_xemEBymesVII1vwa0sVGLhlhiZ4BKNv_CQoVvqzYEknbC",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": 0.85,
+    "lobbyReturnY": 0.9,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": 0.02,
+    "cropY": 0.2,
+    "cropW": 0.54,
+    "cropH": 0.26,
+    "crop2X": 0.02,
+    "crop2Y": 0.2,
+    "crop2W": 0.54,
+    "crop2H": 0.26,
+    "captureDelay": 1.0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "autoRoomCreation": false,
+    "autoHostLeadTime": 5,
+    "autoHostActions": [
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.829,
+        "y": 0.835
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.516,
+        "y": 0.895
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.891,
+        "y": 0.877
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.756,
+        "y": 0.348
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.377,
+        "y": 0.578
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.039,
+        "y": 0.296
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.462,
+        "y": 0.212
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.491,
+        "y": 0.848
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.509,
+        "y": 0.757
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.481,
+        "y": 0.512
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.61,
+        "y": 0.628
+      }
+    ],
+    "autoCloseRoom": false,
+    "detectWinners": true,
+    "sleepTime": 2,
+    "logInterval": 15,
+    "logOffset": 0
+  }
+}

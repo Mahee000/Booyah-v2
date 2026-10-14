@@ -1,0 +1,20 @@
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment and IDE
+.venv/
+venv/
+.vscode/
+.idea/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# Captures and runtime artifacts
+data/captures/*.png
+!data/captures/.gitkeep
+

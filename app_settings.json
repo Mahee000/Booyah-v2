@@ -10,5 +10,7 @@
   "confirmCloseDelay": 4.0,
   "extraCloseX": 0.975,
   "extraCloseY": 0.033,
-  "extraCloseDelay": 2.0
+  "extraCloseDelay": 2.0,
+  "max_ram_mb": 800,
+  "max_cpu_pct": 75.0
 }

@@ -10,19 +10,23 @@ _esports_ocr = None
 
 def get_esports_ocr():
     global _esports_ocr
-    if _esports_ocr is None:
-        _esports_ocr = PaddleOCR(
-            ocr_version='PP-OCRv4',
-            use_angle_cls=False,
-            lang='en',
-            show_log=False,
-            enable_mkldnn=False,
-            cpu_threads=1,
-            drop_score=0.45,
-            det_limit_side_len=1920,
-            det_limit_type='max'
-        )
-    return _esports_ocr
+    try:
+        from src.core.resource_governor import ResourceGovernor
+        return ResourceGovernor.get().get_shared_ocr()
+    except Exception:
+        if _esports_ocr is None:
+            _esports_ocr = PaddleOCR(
+                ocr_version='PP-OCRv4',
+                use_angle_cls=False,
+                lang='en',
+                show_log=False,
+                enable_mkldnn=False,
+                cpu_threads=1,
+                drop_score=0.45,
+                det_limit_side_len=1920,
+                det_limit_type='max'
+            )
+        return _esports_ocr
 
 # Comprehensive fallback dictionary for Free Fire stylized fonts
 FALLBACK_MAP = {
@@ -272,10 +276,15 @@ def parse_esports_scoreboard(
     def run_pass(crop_part: Image.Image, side: str, x_offset: int):
         np_arr = np.array(crop_part)
         try:
+            from src.core.resource_governor import ResourceGovernor
             engine = get_esports_ocr()
-            ocr_out = engine.ocr(np_arr, cls=False)
+            ocr_out = ResourceGovernor.get().run_inference_guarded(engine.ocr, np_arr, cls=False)
         except Exception:
-            ocr_out = None
+            try:
+                engine = get_esports_ocr()
+                ocr_out = engine.ocr(np_arr, cls=False)
+            except Exception:
+                ocr_out = None
 
         if ocr_out and ocr_out[0]:
             for item in ocr_out[0]:

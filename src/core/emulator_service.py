@@ -179,7 +179,16 @@ class EmulatorService:
             return []
 
     def capture_screenshot(self, serial: str) -> Optional[Image.Image]:
-        """Captures frame directly from emulator via screencap"""
+        """Captures frame directly from emulator via screencap utilizing reusable buffer pool"""
+        buf = None
+        governor = None
+        try:
+            from src.core.resource_governor import ResourceGovernor
+            governor = ResourceGovernor.get()
+            buf = governor.acquire_screencap_buffer()
+        except Exception:
+            buf = io.BytesIO()
+
         try:
             proc = subprocess.run(
                 [self.adb_path, "-s", serial, "exec-out", "screencap", "-p"],
@@ -193,10 +202,20 @@ class EmulatorService:
                 elif b"\r\n" in data[:100] and not data.startswith(b"\x89PNG\r\n\x1a\n"):
                     data = data.replace(b"\r\n", b"\n")
 
-                img = Image.open(io.BytesIO(data))
-                return img.convert("RGB")
+                buf.write(data)
+                buf.seek(0)
+                img = Image.open(buf)
+                loaded_img = img.convert("RGB")
+                img.close()
+                return loaded_img
         except Exception as e:
             logger.error(f"Screenshot failed on {serial}: {e}")
+        finally:
+            if buf is not None:
+                if governor is not None:
+                    governor.release_screencap_buffer(buf)
+                else:
+                    buf.close()
         return None
 
     def capture_frame(self, serial: str) -> Optional[Image.Image]:

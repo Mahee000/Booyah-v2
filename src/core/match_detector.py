@@ -5,18 +5,12 @@ import numpy as np
 from PIL import Image
 from paddleocr import PaddleOCR
 
+from src.core.resource_governor import ResourceGovernor
+
 logger = logging.getLogger(__name__)
 
-# Initialize native PaddleOCR engine matching old app parameters (Highest tier PP-OCRv4, Single-Threaded)
-_ocr_engine = PaddleOCR(
-    ocr_version='PP-OCRv4',
-    use_angle_cls=False,
-    lang='en',
-    show_log=False,
-    enable_mkldnn=False,
-    cpu_threads=1,
-    drop_score=0.60
-)
+def get_match_ocr():
+    return ResourceGovernor.get().get_shared_ocr()
 
 def compute_dhash(image: Image.Image) -> str:
     """
@@ -63,7 +57,8 @@ def detect_match_state(image: Image.Image, target_mode: str = "AUTO") -> Tuple[s
     """
     try:
         img_np = np.array(image.convert("RGB"))
-        ocr_out = _ocr_engine.ocr(img_np, cls=False)
+        ocr_engine = get_match_ocr()
+        ocr_out = ResourceGovernor.get().run_inference_guarded(ocr_engine.ocr, img_np, cls=False)
     except Exception as e:
         return "IDLE", "", {"error": str(e)}
 

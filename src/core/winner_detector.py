@@ -166,20 +166,24 @@ _winner_paddle_ocr = None
 
 def get_winner_ocr():
     global _winner_paddle_ocr
-    if _winner_paddle_ocr is None:
-        from paddleocr import PaddleOCR
-        _winner_paddle_ocr = PaddleOCR(
-            ocr_version='PP-OCRv4',
-            use_angle_cls=False,
-            lang='en',
-            show_log=False,
-            enable_mkldnn=False,
-            cpu_threads=2,
-            drop_score=0.45,
-            det_limit_side_len=960,
-            det_limit_type='max'
-        )
-    return _winner_paddle_ocr
+    try:
+        from src.core.resource_governor import ResourceGovernor
+        return ResourceGovernor.get().get_shared_ocr()
+    except Exception:
+        if _winner_paddle_ocr is None:
+            from paddleocr import PaddleOCR
+            _winner_paddle_ocr = PaddleOCR(
+                ocr_version='PP-OCRv4',
+                use_angle_cls=False,
+                lang='en',
+                show_log=False,
+                enable_mkldnn=False,
+                cpu_threads=1,
+                drop_score=0.45,
+                det_limit_side_len=960,
+                det_limit_type='max'
+            )
+        return _winner_paddle_ocr
 
 
 class LoneWolfWinnerDetector:
@@ -245,9 +249,13 @@ class LoneWolfWinnerDetector:
             slot_card = crop_img.crop((x1, y1, x2, y2))
             np_slot = np.array(slot_card)
             try:
-                ocr_out = self._ocr.ocr(np_slot, cls=False)
+                from src.core.resource_governor import ResourceGovernor
+                ocr_out = ResourceGovernor.get().run_inference_guarded(self._ocr.ocr, np_slot, cls=False)
             except Exception:
-                ocr_out = None
+                try:
+                    ocr_out = self._ocr.ocr(np_slot, cls=False)
+                except Exception:
+                    ocr_out = None
 
             if not ocr_out or not ocr_out[0]:
                 return None
@@ -333,9 +341,13 @@ class LoneWolfWinnerDetector:
             np_slot = np.array(slot_box)
 
             try:
-                ocr_out = self._ocr.ocr(np_slot, cls=False)
+                from src.core.resource_governor import ResourceGovernor
+                ocr_out = ResourceGovernor.get().run_inference_guarded(self._ocr.ocr, np_slot, cls=False)
             except Exception:
-                ocr_out = None
+                try:
+                    ocr_out = self._ocr.ocr(np_slot, cls=False)
+                except Exception:
+                    ocr_out = None
 
             if ocr_out and ocr_out[0]:
                 # Collect lines found in this slot box
@@ -372,9 +384,13 @@ class LoneWolfWinnerDetector:
             np_rslot = np.array(r_slot_box)
 
             try:
-                r_ocr_out = self._ocr.ocr(np_rslot, cls=False)
+                from src.core.resource_governor import ResourceGovernor
+                r_ocr_out = ResourceGovernor.get().run_inference_guarded(self._ocr.ocr, np_rslot, cls=False)
             except Exception:
-                r_ocr_out = None
+                try:
+                    r_ocr_out = self._ocr.ocr(np_rslot, cls=False)
+                except Exception:
+                    r_ocr_out = None
 
             if r_ocr_out and r_ocr_out[0]:
                 r_raw_lines = []

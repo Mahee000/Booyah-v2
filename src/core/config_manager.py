@@ -52,6 +52,9 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "extraCloseX": 0.975,
     "extraCloseY": 0.033,
     "extraCloseDelay": 2.0,
+    # Resource Governor hardware ceilings
+    "max_ram_mb": 800,
+    "max_cpu_pct": 75.0,
 }
 
 def load_app_settings() -> Dict[str, Any]:

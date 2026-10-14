@@ -420,5 +420,117 @@
     "sleepTime": 2,
     "logInterval": 15,
     "logOffset": 0
+  },
+  "127.0.0.1:5556": {
+    "customName": "",
+    "mode": "BR",
+    "preset": "br_solo",
+    "webhook": "https://ptb.discord.com/api/webhooks/1524848505682923562/Gk5qks0oYLhhXQUvqXM4zmo1Tcik00DH4uJerCcl66n_WRyXBrR2Iu95h3ZIf26S3ezX",
+    "autoLobbyReturn": false,
+    "lobbyReturnDelay": 3.0,
+    "lobbyReturnX": 0.86,
+    "lobbyReturnY": 0.91,
+    "scanSpeed": 1000,
+    "scrollCount": 0,
+    "cropX": 0.03,
+    "cropY": 0.22,
+    "cropW": 0.93,
+    "cropH": 0.66,
+    "crop2X": 0.03,
+    "crop2Y": 0.22,
+    "crop2W": 0.93,
+    "crop2H": 0.66,
+    "captureDelay": 1.0,
+    "esportsMode": false,
+    "esportsKillPoints": 1,
+    "esportsPlacementPoints": [
+      12,
+      9,
+      8,
+      7,
+      6,
+      5,
+      4,
+      3,
+      2,
+      1,
+      0,
+      0
+    ],
+    "autoRoomCreation": false,
+    "autoHostLeadTime": 5,
+    "autoHostActions": [
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.829,
+        "y": 0.835
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.516,
+        "y": 0.895
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.891,
+        "y": 0.877
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.756,
+        "y": 0.348
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.367,
+        "y": 0.473
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.039,
+        "y": 0.296
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.462,
+        "y": 0.212
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.491,
+        "y": 0.848
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.509,
+        "y": 0.757
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.481,
+        "y": 0.512
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.61,
+        "y": 0.628
+      }
+    ],
+    "autoCloseRoom": false,
+    "detectWinners": true,
+    "sleepTime": 20,
+    "logInterval": 30,
+    "logOffset": 0
   }
 }

@@ -295,16 +295,41 @@ class AutoHostStepRow(QFrame):
             t_row = QHBoxLayout()
             t_row.setSpacing(8)
 
-            lbl_txt = QLabel("Text / Password:")
+            from PyQt6.QtWidgets import QRadioButton, QButtonGroup
+            self.role_group = QButtonGroup(self)
+            
+            is_pw = bool(self.step_data.get("isPassword", False) or self.step_data.get("role") == "room_password")
+
+            self.radio_pw = QRadioButton("Dynamic Room Password")
+            self.radio_pw.setStyleSheet("color: #38bdf8; font-weight: 600; font-size: 11px;")
+            self.radio_static = QRadioButton("Static Custom Text")
+            self.radio_static.setStyleSheet("color: #8b949e; font-size: 11px;")
+
+            self.role_group.addButton(self.radio_pw)
+            self.role_group.addButton(self.radio_static)
+
+            if is_pw:
+                self.radio_pw.setChecked(True)
+            else:
+                self.radio_static.setChecked(True)
+
+            t_row.addWidget(self.radio_pw)
+            t_row.addWidget(self.radio_static)
+            t_row.addStretch()
+            layout.addLayout(t_row)
+
+            val_row = QHBoxLayout()
+            val_row.setSpacing(8)
+            lbl_txt = QLabel("Value / Fallback:")
             lbl_txt.setStyleSheet(_lbl_style)
-            t_row.addWidget(lbl_txt)
+            val_row.addWidget(lbl_txt)
 
             self.text_input = QLineEdit()
-            self.text_input.setPlaceholderText("e.g. room password or room name")
+            self.text_input.setPlaceholderText("e.g. 123 (uses dynamic password if selected above)")
             self.text_input.setText(str(self.step_data.get("text", "")))
             self.text_input.setFixedHeight(28)
-            t_row.addWidget(self.text_input, 1)
-            layout.addLayout(t_row)
+            val_row.addWidget(self.text_input, 1)
+            layout.addLayout(val_row)
 
         # Delay row
         d_row = QHBoxLayout()
@@ -344,6 +369,8 @@ class AutoHostStepRow(QFrame):
             data["endY"] = round(self.ey_spin.value() / 100.0, 3)
         elif stype == "text":
             data["text"] = self.text_input.text().strip()
+            data["isPassword"] = self.radio_pw.isChecked()
+            data["role"] = "room_password" if self.radio_pw.isChecked() else "static_text"
         return data
 
 
@@ -476,6 +503,7 @@ class AutoHostDialog(QDialog):
         self.room_password_edit.setStyleSheet(
             "QLineEdit { background-color: #0b0e14; color: #f0f6fc; border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; }"
         )
+        self.room_password_edit.textChanged.connect(self._on_top_password_changed)
         pw_row.addWidget(self.room_password_edit)
         pw_row.addStretch()
         s_layout.addLayout(pw_row)
@@ -684,6 +712,14 @@ class AutoHostDialog(QDialog):
             row.calibrate_requested.connect(self._calibrate_step)
             self.steps_layout.addWidget(row)
 
+    def _on_top_password_changed(self, new_pw: str):
+        """Updates any steps tagged as Dynamic Room Password with the typed password value."""
+        for i in range(self.steps_layout.count()):
+            widget = self.steps_layout.itemAt(i).widget()
+            if isinstance(widget, AutoHostStepRow) and widget.step_data.get("type") == "text":
+                if widget.radio_pw.isChecked():
+                    widget.text_input.setText(new_pw)
+
     def _sync_actions_from_ui(self):
         new_actions = []
         for i in range(self.steps_layout.count()):
@@ -817,17 +853,10 @@ class AutoHostDialog(QDialog):
         self.config["autoHostClickX"] = round(self.copy_x_spin.value() / 100.0, 3)
         self.config["autoHostClickY"] = round(self.copy_y_spin.value() / 100.0, 3)
         
-        # If password given and no text step exists, or update existing text step
-        text_step = None
+        # Update any step explicitly marked as dynamic password
         for step in self.actions:
-            if step.get("type") == "text":
-                text_step = step
-                break
-        if text_step and pw:
-            text_step["text"] = pw
-        elif pw and not text_step:
-            self.actions.append({"type": "text", "text": pw, "delay": 1.5})
-            self.config["autoHostActions"] = self.actions
+            if step.get("type") == "text" and (step.get("isPassword") or step.get("role") == "room_password"):
+                step["text"] = pw
 
         save_node_config(self.serial, self.config)
         self.accept()

@@ -442,8 +442,14 @@ class EmulatorAutomationWorker(QThread):
                     self.log_message.emit(self.serial, f"AUTO_HOST: Step {step_num} - Sliding from [{sx * 100:.1f}%, {sy * 100:.1f}%] to [{ex * 100:.1f}%, {ey * 100:.1f}%]...", "AUTO_HOST")
                     self.service.swipe_normalized(self.serial, sx, sy, ex, ey, 600)
                 elif step_type == "text":
-                    text = str(step.get("text", ""))
-                    self.log_message.emit(self.serial, f"AUTO_HOST: Step {step_num} - Typing text '{text}'...", "AUTO_HOST")
+                    # Check if this text step is tagged as the dynamic Room Password
+                    if step.get("isPassword") or step.get("role") == "room_password":
+                        text = str(self.config.get("autoHostPassword") or step.get("text", "")).strip()
+                        self.log_message.emit(self.serial, f"AUTO_HOST: Step {step_num} - Typing dynamic Room Password '{text}'...", "AUTO_HOST")
+                    else:
+                        text = str(step.get("text", ""))
+                        self.log_message.emit(self.serial, f"AUTO_HOST: Step {step_num} - Typing text '{text}'...", "AUTO_HOST")
+                    
                     self.service.input_text(self.serial, text)
 
                 wait_sec = max(0.1, delay_sec)

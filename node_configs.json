@@ -345,7 +345,7 @@
       0,
       0
     ],
-    "autoRoomCreation": false,
+    "autoRoomCreation": true,
     "autoHostLeadTime": 5,
     "autoHostActions": [
       {
@@ -429,7 +429,7 @@
       {
         "type": "text",
         "delay": 1.0,
-        "text": "123",
+        "text": "67",
         "isPassword": true,
         "role": "room_password"
       },
@@ -454,8 +454,8 @@
     "sleepTime": 2,
     "logInterval": 15,
     "logOffset": 0,
-    "autoHostMaster": "None",
-    "autoHostPassword": "123",
+    "autoHostMaster": "127.0.0.1:5556",
+    "autoHostPassword": "67",
     "autoHostClickX": 0.133,
     "autoHostClickY": 0.148
   },

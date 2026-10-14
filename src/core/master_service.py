@@ -38,10 +38,10 @@ class MasterCoordinatorService:
                 [self.service.adb_path, "-s", serial, "shell", "uiautomator", "dump", dump_file],
                 capture_output=True, timeout=5
             )
-            # Read XML content
+            # Read XML content with explicit UTF-8 encoding (prevents Windows cp1252 crash on Bengali characters)
             proc = subprocess.run(
                 [self.service.adb_path, "-s", serial, "shell", "cat", dump_file],
-                capture_output=True, text=True, timeout=5
+                capture_output=True, encoding="utf-8", errors="replace", timeout=5
             )
             xml_text = proc.stdout.strip()
             if not xml_text or not xml_text.startswith("<?xml"):
@@ -52,7 +52,7 @@ class MasterCoordinatorService:
                 else:
                     return None
 
-            return ET.fromstring(xml_text)
+            return ET.fromstring(xml_text.encode("utf-8"))
         except Exception as e:
             logger.error(f"Failed to dump UI hierarchy from {serial}: {e}")
             return None
@@ -135,17 +135,37 @@ class MasterCoordinatorService:
         return fields
 
     def ensure_home_screen(self, master_serial: str, max_backs: int = 5) -> bool:
-        """Navigates back to ZVY Admin home dashboard by checking the XML tree."""
+        """Navigates back to ZVY Admin home dashboard by inspecting the UI tree before and after each back press."""
         for attempt in range(max_backs + 1):
             root = self.get_ui_hierarchy(master_serial)
             if root is not None:
-                # Home Screen has "Refresh Dashboard" or "Manage Users"
-                if self.find_node_by_desc(root, r"Refresh Dashboard") or self.find_node_by_desc(root, r"ZVY Admin"):
+                # 1. Check if already on Home Dashboard
+                if self.find_node_by_desc(root, r"Refresh Dashboard") or self.find_node_by_desc(root, r"Manage Users"):
                     return True
 
+                # 2. Check if dropped to Login screen (e.g. session timeout or accidental logout)
+                login_btn = self.find_node_by_desc(root, r"^Login$")
+                if login_btn:
+                    logger.info("Found Login button on screen. Logging in to return to dashboard...")
+                    self.service.tap(master_serial, login_btn[0], login_btn[1])
+                    time.sleep(2.0)
+                    continue
+
+                # 3. Check if Android launcher / desktop was reached (backed out of app)
+                pkg = root.attrib.get("package", "")
+                if "launcher" in pkg.lower() or not self.find_node_by_desc(root, r"com.riyaz.zvyadmin"):
+                    import subprocess
+                    subprocess.run(
+                        [self.service.adb_path, "-s", master_serial, "shell", "monkey", "-p", "com.riyaz.zvyadmin", "-c", "android.intent.category.LAUNCHER", "1"],
+                        capture_output=True, timeout=4
+                    )
+                    time.sleep(1.5)
+                    continue
+
+            # Press Back once, then loop back to check the UI tree
             if attempt < max_backs:
                 self.service.keyevent(master_serial, 4)  # Android Back
-                time.sleep(1.0)
+                time.sleep(1.2)
 
         return False
 
@@ -247,40 +267,37 @@ class MasterCoordinatorService:
 
             inputs = self.find_input_fields_in_dialog(dialog_root)
 
-            # Room ID
-            if "room_id" in inputs and room_id:
-                rx, ry = inputs["room_id"]
+            # Room ID field (Slot 1 in dialog)
+            rx, ry = inputs.get("room_id", (360, 586))
+            if room_id:
                 log(f"Tapping Room ID field at ({rx}, {ry}) & entering '{room_id}'...", "MASTER")
                 self.service.tap(master_serial, rx, ry)
-                time.sleep(0.4)
-                self.service.clear_field(master_serial, 15)
-                self.service.input_text(master_serial, room_id)
-                self.service.keyevent(master_serial, 66)
-                time.sleep(0.4)
-
-            # Password
-            if "password" in inputs and password:
-                px, py = inputs["password"]
-                log(f"Tapping Password field at ({px}, {py}) & entering password...", "MASTER")
-                self.service.tap(master_serial, px, py)
-                time.sleep(0.4)
-                self.service.clear_field(master_serial, 15)
-                self.service.input_text(master_serial, password)
-                self.service.keyevent(master_serial, 66)
-                time.sleep(0.4)
-
-            # Save / Submit
-            if "save" in inputs:
-                sx, sy = inputs["save"]
-                log(f"Tapping SAVE at ({sx}, {sy})...", "MASTER")
-                self.service.tap(master_serial, sx, sy)
-                time.sleep(1.0)
+                time.sleep(0.5)
+                self.service.clear_field(master_serial, 20)
+                time.sleep(0.2)
+                self.service.input_text(master_serial, str(room_id).strip())
+                self.service.keyevent(master_serial, 66)  # Enter key
+                time.sleep(0.5)
             else:
-                # Look for Save button via desc
-                save_coords = self.find_node_by_desc(dialog_root, r"save|confirm|submit")
-                if save_coords:
-                    self.service.tap(master_serial, save_coords[0], save_coords[1])
-                    time.sleep(1.0)
+                log("WARN: Room ID is blank! Skipping Room ID input field.", "WARN")
+
+            # Password field (Slot 2 in dialog)
+            px, py = inputs.get("password", (360, 694))
+            if password:
+                log(f"Tapping Password field at ({px}, {py}) & entering password '{password}'...", "MASTER")
+                self.service.tap(master_serial, px, py)
+                time.sleep(0.5)
+                self.service.clear_field(master_serial, 20)
+                time.sleep(0.2)
+                self.service.input_text(master_serial, str(password).strip())
+                self.service.keyevent(master_serial, 66)  # Enter key
+                time.sleep(0.5)
+
+            # Save / Submit button
+            sx, sy = inputs.get("save", (474, 809))
+            log(f"Tapping SAVE at ({sx}, {sy})...", "MASTER")
+            self.service.tap(master_serial, sx, sy)
+            time.sleep(1.2)
 
             # Return to Home Screen
             self.service.keyevent(master_serial, 4)
@@ -395,24 +412,24 @@ class MasterCoordinatorService:
             for _ in range(3):
                 lm_match_root = self.get_ui_hierarchy(master_serial)
                 if lm_match_root is not None:
-                    # Check if match card contains target time or has Move to Match Page
                     clean_targets = [t.replace(" ", "").upper() for t in target_times]
                     for node in lm_match_root.iter("node"):
                         desc = node.attrib.get("content-desc", "").replace(" ", "").upper()
-                        if any(t in desc for t in clean_targets) or "LIVE" in desc:
-                            bounds = self.parse_bounds(node.attrib.get("bounds", ""))
-                            if bounds:
-                                match_card_coords = ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
-                                break
+                        bounds = self.parse_bounds(node.attrib.get("bounds", ""))
+                        # Must be a match card (below top bar and tabs, y1 > 190) and contain match info
+                        if bounds and bounds[1] > 190 and ("#" in desc or any(t in desc for t in clean_targets) or "LIVE" in desc):
+                            # Tap title / upper portion of card to avoid 'Move to Match Page'
+                            match_card_coords = ((bounds[0] + bounds[2]) // 2, bounds[1] + 80)
+                            break
                     if match_card_coords:
                         break
                 self.service.swipe_normalized(master_serial, 0.5, 0.85, 0.5, 0.40, 500)
                 time.sleep(0.8)
 
             if match_card_coords:
-                log(f"Found active match card at {match_card_coords}. Tapping...", "REWARD")
+                log(f"Found active match card at {match_card_coords}. Tapping match body...", "REWARD")
                 self.service.tap(master_serial, match_card_coords[0], match_card_coords[1])
-                time.sleep(1.5)
+                time.sleep(1.8)
             else:
                 log("Could not find active match in Live Match view.", "WARN")
 
@@ -480,11 +497,6 @@ class MasterCoordinatorService:
                 log(f"Resolved winning team group: {winning_group}", "REWARD")
 
                 # 5. Filter Players To Reward:
-                # User Rules:
-                # - If the scoreboard shows e.g. 3 winners (4v3), ONLY 3 players receive rewards.
-                # - If player names match directly via OCR similarity, reward those matched players in the winning group.
-                # - If names are stylized/unmatched but registered players exist in that winning group,
-                #   reward up to the exact count of winners detected on the scoreboard (e.g. 3 winners -> 3 players rewarded).
                 players_to_reward = []
                 expected_winner_count = len(winners)
 
@@ -492,12 +504,9 @@ class MasterCoordinatorService:
                 group_registered_players = [p for p in registered_players if p["slot"] in winning_group]
 
                 if matched_players:
-                    # Directly matched players in the winning group
                     matched_in_group = [p for p in matched_players if p["slot"] in winning_group]
                     players_to_reward = matched_in_group
 
-                    # If some names in the winning group didn't match OCR (e.g. fancy fonts),
-                    # but the detected winner count is higher, fill from the remaining registered players in the group
                     if len(players_to_reward) < expected_winner_count:
                         rewarded_slots = {p["slot"] for p in players_to_reward}
                         for p in group_registered_players:
@@ -506,8 +515,6 @@ class MasterCoordinatorService:
                                 if len(players_to_reward) >= expected_winner_count:
                                     break
                 else:
-                    # Fallback: OCR names could not be matched directly due to font/symbols,
-                    # reward registered players from the winning group up to the detected winner count
                     players_to_reward = group_registered_players[:expected_winner_count] if expected_winner_count > 0 else group_registered_players
 
                 log(f"Final players to reward ({len(players_to_reward)} players, expected {expected_winner_count}): {[(p['slot'], p['name']) for p in players_to_reward]}", "REWARD")
@@ -515,45 +522,50 @@ class MasterCoordinatorService:
                 # 6. Execute Edit -> Winner -> Save on each rewarded player
                 for p in players_to_reward:
                     bounds = p["bounds"]
-                    edit_x = int(bounds[2] * 0.90)
+                    # Edit button is on the far right of the player card row
+                    edit_x = bounds[2] - 40
                     edit_y = (bounds[1] + bounds[3]) // 2
                     log(f"Tapping Edit button for Slot {p['slot']} ({p['name']}) at ({edit_x}, {edit_y})...", "REWARD")
                     self.service.tap(master_serial, edit_x, edit_y)
                     time.sleep(1.0)
 
-                    # Handle Winner Popup: find 'Winner' radio/button and 'Save'
+                    # Handle Winner Popup: select 'Winner' and tap 'Save'
                     popup_root = self.get_ui_hierarchy(master_serial)
                     if popup_root is not None:
                         win_btn = self.find_node_by_desc(popup_root, r"Winner")
                         if win_btn:
                             self.service.tap(master_serial, win_btn[0], win_btn[1])
                             time.sleep(0.5)
+                        else:
+                            self.service.tap(master_serial, 219, 498)
+                            time.sleep(0.5)
+
                         save_btn = self.find_node_by_desc(popup_root, r"^Save$")
                         if save_btn:
                             self.service.tap(master_serial, save_btn[0], save_btn[1])
-                            time.sleep(1.0)
                         else:
-                            self.service.keyevent(master_serial, 4)
-                            time.sleep(0.5)
+                            self.service.tap(master_serial, 502, 1048)
+                        time.sleep(1.0)
+                    else:
+                        self.service.keyevent(master_serial, 4)
+                        time.sleep(0.5)
 
             # Phase 5: Tap 'See Result Sheet'
             sheet_root = self.get_ui_hierarchy(master_serial)
             if sheet_root is not None:
-                sheet_btn = self.find_node_by_desc(sheet_root, r"See Result Sheet")
-                if sheet_btn:
-                    log(f"Found 'See Result Sheet' at {sheet_btn}. Tapping...", "REWARD")
-                    self.service.tap(master_serial, sheet_btn[0], sheet_btn[1])
-                    time.sleep(2.0)
+                sheet_btn = self.find_node_by_desc(sheet_root, r"See Result Sheet") or (360, 1220)
+                log(f"Tapping 'See Result Sheet' at {sheet_btn}...", "REWARD")
+                self.service.tap(master_serial, sheet_btn[0], sheet_btn[1])
+                time.sleep(2.0)
 
-                    # Phase 6: Tap 'Submit Result'
-                    submit_root = self.get_ui_hierarchy(master_serial)
-                    if submit_root is not None:
-                        sub_btn = self.find_node_by_desc(submit_root, r"Submit Result")
-                        if sub_btn:
-                            log(f"Found 'Submit Result' at {sub_btn}. Tapping...", "REWARD")
-                            self.service.tap(master_serial, sub_btn[0], sub_btn[1])
-                            time.sleep(2.0)
-                            log("Result sheet submitted successfully!", "SUCCESS")
+                # Phase 6: Tap 'Submit Result'
+                submit_root = self.get_ui_hierarchy(master_serial)
+                if submit_root is not None:
+                    sub_btn = self.find_node_by_desc(submit_root, r"Submit Result") or (360, 1203)
+                    log(f"Tapping 'Submit Result' at {sub_btn}...", "REWARD")
+                    self.service.tap(master_serial, sub_btn[0], sub_btn[1])
+                    time.sleep(2.5)
+                    log("Result sheet submitted successfully!", "SUCCESS")
 
             # Return to Home Screen
             self.ensure_home_screen(master_serial)
@@ -593,7 +605,7 @@ class MasterCoordinatorService:
                     self.service.tap(master_serial, tab_coords[0], tab_coords[1])
                     time.sleep(1.2)
 
-            # Phase 9: Select completed match in Send Reward list
+            # Phase 9: Select completed match in Send Reward list (tap upper body of card)
             completed_card_coords = None
             for _ in range(3):
                 sr_match_root = self.get_ui_hierarchy(master_serial)
@@ -601,10 +613,11 @@ class MasterCoordinatorService:
                     clean_targets = [t.replace(" ", "").upper() for t in target_times]
                     for node in sr_match_root.iter("node"):
                         desc = node.attrib.get("content-desc", "").replace(" ", "").upper()
-                        if any(t in desc for t in clean_targets) or "COMPLETED" in desc:
+                        if any(t in desc for t in clean_targets) or "REWARD" in desc or "COMPLETED" in desc:
                             bounds = self.parse_bounds(node.attrib.get("bounds", ""))
                             if bounds:
-                                completed_card_coords = ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
+                                # Tap title / upper portion of card
+                                completed_card_coords = ((bounds[0] + bounds[2]) // 2, bounds[1] + 80)
                                 break
                     if completed_card_coords:
                         break
@@ -612,35 +625,38 @@ class MasterCoordinatorService:
                 time.sleep(0.8)
 
             if completed_card_coords:
-                log(f"Found completed match card at {completed_card_coords}. Tapping...", "REWARD")
+                log(f"Found completed match card at {completed_card_coords}. Tapping match body...", "REWARD")
                 self.service.tap(master_serial, completed_card_coords[0], completed_card_coords[1])
-                time.sleep(1.5)
+                time.sleep(1.8)
             else:
                 log("Could not find completed match in Send Reward list.", "WARN")
 
             # Phase 10: Tap 'Send All'
             payout_root = self.get_ui_hierarchy(master_serial)
             if payout_root is not None:
-                send_all_btn = self.find_node_by_desc(payout_root, r"Send All")
-                if send_all_btn:
-                    log(f"Found 'Send All' button at {send_all_btn}. Tapping...", "REWARD")
+                if self.find_node_by_desc(payout_root, r"All Sent"):
+                    log("Match already marked 'All Sent'. Payouts previously completed.", "SUCCESS")
+                else:
+                    send_all_btn = self.find_node_by_desc(payout_root, r"Send All") or (533, 1228)
+                    log(f"Tapping 'Send All' button at {send_all_btn}...", "REWARD")
                     self.service.tap(master_serial, send_all_btn[0], send_all_btn[1])
-                    time.sleep(1.2)
+                    time.sleep(1.5)
 
                     # Phase 11: Tap 'CONFIRM'
                     confirm_root = self.get_ui_hierarchy(master_serial)
+                    confirm_btn = None
                     if confirm_root is not None:
                         confirm_btn = self.find_node_by_desc(confirm_root, r"CONFIRM")
-                        if confirm_btn:
-                            log(f"Found 'CONFIRM' button at {confirm_btn}. Tapping...", "REWARD")
-                            self.service.tap(master_serial, confirm_btn[0], confirm_btn[1])
-                            time.sleep(2.0)
-                            log("Full Auto Rewards sequence completed successfully! All payouts sent.", "SUCCESS")
-                else:
-                    # Might already be 'All Sent'
-                    if self.find_node_by_desc(payout_root, r"All Sent"):
-                        log("Match already marked 'All Sent'. Payouts previously completed.", "SUCCESS")
+                    if not confirm_btn:
+                        confirm_btn = (454, 757)
+
+                    log(f"Tapping 'CONFIRM' button at {confirm_btn}...", "REWARD")
+                    self.service.tap(master_serial, confirm_btn[0], confirm_btn[1])
+                    time.sleep(2.5)
+                    log("Full Auto Rewards sequence completed successfully! All payouts sent.", "SUCCESS")
 
             # Clean exit back to Home Screen
+            time.sleep(1.0)
+            log("Returning to Home Screen...", "REWARD")
             self.ensure_home_screen(master_serial)
             return True

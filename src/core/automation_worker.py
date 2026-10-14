@@ -416,11 +416,27 @@ class EmulatorAutomationWorker(QThread):
                         self.msleep(1000)
                     return
 
-            # 5. Handle Lobby Screen & Match Schedule Lead Time Trigger
-            elif state in ("LOBBY_SCREEN", "CUSTOM_ROOM_SCREEN"):
+            # 5. Handle In-Room Lobby, Custom Room Screen & Match Schedule Lead Time Trigger
+            elif state in ("IN_ROOM_LOBBY", "LOBBY_SCREEN", "CUSTOM_ROOM_SCREEN"):
+                is_in_room = details.get("is_in_room", False) if isinstance(details, dict) else False
+                detected_room_id = details.get("room_id") if isinstance(details, dict) else None
                 is_home = details.get("is_home_lobby", True) if isinstance(details, dict) else True
                 auto_room = self.config.get("autoRoomCreation", False)
                 actions = self.config.get("autoHostActions", [])
+
+                # If already inside room lobby, NEVER run room creation again!
+                if state == "IN_ROOM_LOBBY" or is_in_room or detected_room_id:
+                    interval_m = int(self.config.get("logInterval", 15) or 15)
+                    offset_m = int(self.config.get("logOffset", 0) or 0)
+                    next_match_sec = get_next_match_time_sec(now, interval_m, offset_m)
+                    if not self.has_run_room_creation:
+                        self.has_run_room_creation = True
+                        self.last_room_creation_match_sec = next_match_sec
+                        self.log_message.emit(
+                            self.serial,
+                            f"AUTO_HOST: Room already open (Detected Room ID: {detected_room_id or 'Active'}). Skipping room creation.",
+                            "SUCCESS"
+                        )
 
                 if state == "CUSTOM_ROOM_SCREEN":
                     if self.config.get("autoCloseRoom", False) and not self.has_run_room_creation:
@@ -543,18 +559,37 @@ class EmulatorAutomationWorker(QThread):
                             for _ in range(5):
                                 if cb:
                                     raw_cb = cb.text().strip()
-                                    m = re.search(r'\b\d{5,10}\b', raw_cb)
+                                    m = re.search(r'\b\d{6,10}\b', raw_cb)
                                     if m:
                                         room_id = m.group(0)
                                         break
                                 self.msleep(400)
                         except Exception:
                             pass
-                        
+
+                        # Robust Fallback: If clipboard didn't capture Room ID, read it directly from the game screen via OCR
+                        if not room_id:
+                            try:
+                                self.log_message.emit(self.serial, "AUTO_HOST: Attempting visual OCR extraction of Room ID from screen...", "AUTO_HOST")
+                                img = self.service.capture_screenshot(self.serial)
+                                if img is not None:
+                                    ocr_engine = ResourceGovernor.get().get_shared_ocr()
+                                    np_arr = np.array(img)
+                                    ocr_out = ResourceGovernor.get().run_inference_guarded(ocr_engine.ocr, np_arr, cls=False)
+                                    if ocr_out and ocr_out[0]:
+                                        for line in ocr_out[0]:
+                                            txt = line[1][0] if isinstance(line[1], (list, tuple)) else str(line[1])
+                                            m = re.search(r'(?:ID|1D|lD)?\s*(\d{6,10})', txt, re.IGNORECASE)
+                                            if m:
+                                                room_id = m.group(1)
+                                                break
+                            except Exception as ocr_err:
+                                logger.error(f"Visual OCR extraction of Room ID failed: {ocr_err}")
+
                         if room_id:
-                            self.log_message.emit(self.serial, f"AUTO_HOST: Copied Room ID: '{room_id}'", "SUCCESS")
+                            self.log_message.emit(self.serial, f"AUTO_HOST: Room ID detected: '{room_id}'", "SUCCESS")
                         else:
-                            self.log_message.emit(self.serial, "AUTO_HOST WARN: Could not read Room ID from clipboard.", "WARN")
+                            self.log_message.emit(self.serial, "AUTO_HOST WARN: Could not detect Room ID from clipboard or screen.", "WARN")
                         
                         game_mode_label = self.config.get("gameModeType", "Lone Wolf 2V2")
                         interval_m = int(self.config.get("logInterval", 15))

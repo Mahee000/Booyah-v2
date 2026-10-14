@@ -118,8 +118,26 @@ def detect_match_state(image: Image.Image, target_mode: str = "AUTO") -> Tuple[s
          and not any(p in clean_text for p in ["PASS", "P4SS", "PA5S"]))
     )
 
+    # Check for Active Inside-Room Lobby (e.g. ID 355410700, SPECTATOR LIST, NOT ENOUGH PLAYERS, START)
+    room_id_match = re.search(r'(?:ID|1D|lD)\s*[:#]?\s*(\d{6,10})', raw_text, re.IGNORECASE) or re.search(r'(?:ID|1D)\s*(\d{6,10})', clean_text)
+    detected_room_id = room_id_match.group(1) if room_id_match else None
+    has_room_id = bool(detected_room_id)
+
+    has_room_lobby_signals = (
+        matches("SPECTATORLIST") or matches("NOTENOUGHPLAYERS") or
+        (has_room_id and (matches("SPECTATOR") or matches("INVITEFRIEND") or matches("START") or matches("LONEWOLF") or matches("CLASHSQUAD")))
+    )
+
+    if has_room_lobby_signals and not has_status_header:
+        return "IN_ROOM_LOBBY", raw_text, {
+            "clean_text": clean_text,
+            "is_in_room": True,
+            "room_id": detected_room_id,
+            "is_home_lobby": False
+        }
+
     if has_custom_word and custom_room_evidence >= 2 and not has_status_header:
-        return "CUSTOM_ROOM_SCREEN", raw_text, {"clean_text": clean_text, "custom_room_evidence": custom_room_evidence}
+        return "CUSTOM_ROOM_SCREEN", raw_text, {"clean_text": clean_text, "custom_room_evidence": custom_room_evidence, "is_in_room": False}
 
     has_start = any(matches_word(w) for w in ["START", "STARI", "8TART", "S1ART"])
     is_lobby_signal = any(matches_word(w) for w in [
@@ -127,7 +145,6 @@ def detect_match_state(image: Image.Image, target_mode: str = "AUTO") -> Tuple[s
         "CASUAL", "SPECTATOR", "ADVANCED", "PROFILE", "TACTICS", "DETAILS", "GUILD"
     ]) or matches("INVITEFRIEND") or matches("BATTLEROYALECLASSIC") or matches("BOOYAHPASS")
 
-    has_room_id = bool(re.search(r'(ID|1D)\d{6,10}', clean_text))
     home_signals = sum([
         matches("STORE") or matches("ST0RE"),
         matches("MISSION") or matches("M1SSION"),
@@ -139,7 +156,7 @@ def detect_match_state(image: Image.Image, target_mode: str = "AUTO") -> Tuple[s
     is_home_lobby = (home_signals >= 2 or (has_start and not has_room_id)) and not has_room_id and not matches("SPECTATORLIST")
 
     if (has_start or is_lobby_signal) and not has_status_header:
-        return "LOBBY_SCREEN", raw_text, {"clean_text": clean_text, "is_home_lobby": is_home_lobby}
+        return "LOBBY_SCREEN", raw_text, {"clean_text": clean_text, "is_home_lobby": is_home_lobby, "room_id": detected_room_id, "is_in_room": has_room_id}
 
     # 3. Result Screen Detection per Mode
     is_cs = (target_mode == "CS")

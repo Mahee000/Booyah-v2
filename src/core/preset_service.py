@@ -34,7 +34,21 @@ KEYS_TO_REMOVE = {
     "clickX", "clickY", "clickDelay"
 }
 
-# Standard 11-step Lone Wolf Auto Room Creation macro sequence calibrated for Free Fire
+# Universal post-room creation Password Sequence (Steps 12 to 16)
+# Used across all game modes (Lone Wolf, Clash Squad, Battle Royale) inside Free Fire Custom Room Lobby
+UNIVERSAL_PASSWORD_STEPS = [
+    {"type": "click", "delay": 1.0, "x": 0.284, "y": 0.144},  # Tap Room Settings / Gear
+    {"type": "click", "delay": 1.0, "x": 0.365, "y": 0.267},  # Tap Password input field
+    {"type": "text", "delay": 1.0, "text": "123", "isPassword": True, "role": "room_password"},
+    {"type": "click", "delay": 1.0, "x": 0.935, "y": 0.924},  # Android Keyboard Enter / Done
+    {"type": "click", "delay": 1.0, "x": 0.541, "y": 0.881}   # Confirm / Save Password
+]
+
+# Standard Copy Room ID Button Coordinate in Free Fire Lobby
+DEFAULT_COPY_ROOM_ID_X = 0.133
+DEFAULT_COPY_ROOM_ID_Y = 0.148
+
+# Standard Complete 16-step Lone Wolf Auto Room Creation macro
 LONE_WOLF_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.829, "y": 0.835},
     {"type": "click", "delay": 1.0, "x": 0.516, "y": 0.895},
@@ -47,9 +61,9 @@ LONE_WOLF_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.509, "y": 0.757},
     {"type": "click", "delay": 1.0, "x": 0.481, "y": 0.512},
     {"type": "click", "delay": 1.0, "x": 0.610, "y": 0.628}
-]
+] + UNIVERSAL_PASSWORD_STEPS
 
-# Standard 11-step Clash Squad Auto Room Creation macro sequence calibrated for Free Fire
+# Standard Complete 16-step Clash Squad Auto Room Creation macro
 CLASH_SQUAD_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.829, "y": 0.835},
     {"type": "click", "delay": 1.0, "x": 0.516, "y": 0.895},
@@ -62,9 +76,9 @@ CLASH_SQUAD_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.509, "y": 0.757},
     {"type": "click", "delay": 1.0, "x": 0.481, "y": 0.512},
     {"type": "click", "delay": 1.0, "x": 0.610, "y": 0.628}
-]
+] + UNIVERSAL_PASSWORD_STEPS
 
-# Standard 11-step Battle Royale Auto Room Creation macro sequence calibrated for Free Fire
+# Standard Complete 16-step Battle Royale Auto Room Creation macro
 BATTLE_ROYALE_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.829, "y": 0.835},
     {"type": "click", "delay": 1.0, "x": 0.516, "y": 0.895},
@@ -77,7 +91,7 @@ BATTLE_ROYALE_ROOM_CREATION_STEPS = [
     {"type": "click", "delay": 1.0, "x": 0.509, "y": 0.757},
     {"type": "click", "delay": 1.0, "x": 0.481, "y": 0.512},
     {"type": "click", "delay": 1.0, "x": 0.610, "y": 0.628}
-]
+] + UNIVERSAL_PASSWORD_STEPS
 
 # Mode-level default Room Creation Macros (Applies to all current & future presets of that mode)
 MODE_DEFAULT_ACTIONS: Dict[str, List[Dict[str, Any]]] = {

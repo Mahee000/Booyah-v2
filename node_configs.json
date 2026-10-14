@@ -310,7 +310,7 @@
     ]
   },
   "127.0.0.1:5575": {
-    "customName": "",
+    "customName": "Lone Wolf",
     "mode": "LW",
     "preset": "std_lw",
     "webhook": "https://ptb.discord.com/api/webhooks/1496127810979500186/lc5Vfn37uFuGd8c0G1y6X7_xemEBymesVII1vwa0sVGLhlhiZ4BKNv_CQoVvqzYEknbC",
@@ -413,13 +413,48 @@
         "delay": 1.0,
         "x": 0.61,
         "y": 0.628
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.284,
+        "y": 0.144
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.365,
+        "y": 0.267
+      },
+      {
+        "type": "text",
+        "delay": 1.0,
+        "text": "123",
+        "isPassword": true,
+        "role": "room_password"
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.935,
+        "y": 0.924
+      },
+      {
+        "type": "click",
+        "delay": 1.0,
+        "x": 0.541,
+        "y": 0.881
       }
     ],
     "autoCloseRoom": false,
     "detectWinners": true,
     "sleepTime": 2,
     "logInterval": 15,
-    "logOffset": 0
+    "logOffset": 0,
+    "autoHostMaster": "None",
+    "autoHostPassword": "123",
+    "autoHostClickX": 0.133,
+    "autoHostClickY": 0.148
   },
   "127.0.0.1:5556": {
     "customName": "",

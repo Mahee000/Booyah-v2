@@ -266,6 +266,47 @@ class EmulatorAutomationWorker(QThread):
                             detected_winners_str = ", ".join(winners_list)
                             win_tag = "[LTW Losers]" if winner_details.get("is_ltw") else "[Winners]"
                             self.log_message.emit(self.serial, f"{win_tag} Detected: {detected_winners_str} ({game_mode_label})", "MATCH")
+
+                            # Trigger Auto Rewards concurrently in background thread immediately upon match detection
+                            if self.config.get("autoRewards", False):
+                                master_serial = self.config.get("autoRewardMaster") or self.config.get("autoHostMaster")
+                                if master_serial and master_serial != "None":
+                                    self.log_message.emit(
+                                        self.serial,
+                                        f"Initiating Auto Rewards for [{detected_winners_str}] on Master {master_serial} (Concurrent)...",
+                                        "REWARD"
+                                    )
+                                    import threading
+                                    def _run_rewards_async(m_ser, w_list, g_lbl, is_ltw_val, l_int, l_off):
+                                        try:
+                                            from src.core.master_service import MasterCoordinatorService
+                                            m_coord = MasterCoordinatorService(self.service)
+                                            m_coord.auto_reward_match(
+                                                game_serial=self.serial,
+                                                master_serial=m_ser,
+                                                winners=w_list,
+                                                game_mode=g_lbl,
+                                                interval_m=l_int,
+                                                offset_m=l_off,
+                                                is_ltw=is_ltw_val,
+                                                log_callback=lambda msg, lvl: self.log_message.emit(self.serial, msg, lvl)
+                                            )
+                                        except Exception as re:
+                                            self.log_message.emit(self.serial, f"Auto Rewards error: {re}", "ERROR")
+
+                                    r_thread = threading.Thread(
+                                        target=_run_rewards_async,
+                                        args=(
+                                            master_serial,
+                                            list(winners_list),
+                                            game_mode_label,
+                                            bool(winner_details.get("is_ltw", False)),
+                                            int(self.config.get("logInterval", 15)),
+                                            int(self.config.get("logOffset", 0))
+                                        ),
+                                        daemon=True
+                                    )
+                                    r_thread.start()
                         else:
                             self.log_message.emit(self.serial, "Scoreboard parsed: No clear winning nicknames identified", "SCAN")
                     except Exception as we:
@@ -359,34 +400,9 @@ class EmulatorAutomationWorker(QThread):
                     self.service.tap_normalized(self.serial, tap_x, tap_y)
 
                     if self.config.get("autoCloseRoom", False):
-                        self.msleep(1500)
+                        self.log_message.emit(self.serial, "LOBBY: Waiting 3s for lobby to settle before Auto Close Room...", "LOBBY")
+                        self.msleep(3000)
                         self._perform_close_room_flow()
-
-                # Trigger Auto Rewards on Master Emulator after returning to lobby
-                if self.config.get("autoRewards", False) and winner_details and winner_details.get("winners"):
-                    winners_list = winner_details.get("winners", [])
-                    master_serial = self.config.get("autoRewardMaster") or self.config.get("autoHostMaster")
-                    if master_serial and master_serial != "None":
-                        self.log_message.emit(
-                            self.serial,
-                            f"Initiating Auto Rewards for [{detected_winners_str}] on Master {master_serial} (Post-Lobby)...",
-                            "REWARD"
-                        )
-                        try:
-                            from src.core.master_service import MasterCoordinatorService
-                            m_coordinator = MasterCoordinatorService(self.service)
-                            m_coordinator.auto_reward_match(
-                                game_serial=self.serial,
-                                master_serial=master_serial,
-                                winners=winners_list,
-                                game_mode=game_mode_label,
-                                interval_m=int(self.config.get("logInterval", 15)),
-                                offset_m=int(self.config.get("logOffset", 0)),
-                                is_ltw=bool(winner_details.get("is_ltw", False)),
-                                log_callback=lambda msg, lvl: self.log_message.emit(self.serial, msg, lvl)
-                            )
-                        except Exception as re:
-                            self.log_message.emit(self.serial, f"Auto Rewards error: {re}", "ERROR")
 
                 # Cooldown / Sleep Time
                 sleep_min = float(self.config.get("sleepTime", 0))

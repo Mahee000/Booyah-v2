@@ -282,21 +282,30 @@ class SidebarInspector(QFrame):
         auto_close_row.addWidget(self.auto_close_btn)
         auto_form.addRow("", auto_close_row)
 
-        # Auto Reward / Winner Detection Row
-        auto_reward_row = QHBoxLayout()
-        auto_reward_row.setContentsMargins(0, 0, 0, 0)
-        auto_reward_row.setSpacing(6)
-        self.auto_reward_chk = QCheckBox("Auto Winner Detection")
-        self.auto_reward_chk.toggled.connect(self._auto_save_if_loaded)
-        auto_reward_row.addWidget(self.auto_reward_chk, 1)
+        # Auto Winner Detection Row
+        auto_winner_row = QHBoxLayout()
+        auto_winner_row.setContentsMargins(0, 0, 0, 0)
+        auto_winner_row.setSpacing(6)
+        self.auto_winner_chk = QCheckBox("Auto Winner Detection")
+        self.auto_winner_chk.toggled.connect(self._auto_save_if_loaded)
+        auto_winner_row.addWidget(self.auto_winner_chk, 1)
 
         self.auto_reward_btn = QPushButton("Settings")
         self.auto_reward_btn.setFixedHeight(28)
-        self.auto_reward_btn.setToolTip("Configure Lone Wolf / Clash Squad / Lose To Win (LTW) Winner Detection")
+        self.auto_reward_btn.setToolTip("Configure Lone Wolf / Clash Squad / Lose To Win (LTW) Winner Detection & Auto Rewards")
         self.auto_reward_btn.setStyleSheet(_action_btn_css)
         self.auto_reward_btn.clicked.connect(self._open_auto_rewards_dialog)
-        auto_reward_row.addWidget(self.auto_reward_btn)
-        auto_form.addRow("", auto_reward_row)
+        auto_winner_row.addWidget(self.auto_reward_btn)
+        auto_form.addRow("", auto_winner_row)
+
+        # Auto Rewards (Payout) Row
+        auto_payout_row = QHBoxLayout()
+        auto_payout_row.setContentsMargins(0, 0, 0, 0)
+        auto_payout_row.setSpacing(6)
+        self.auto_reward_chk = QCheckBox("Auto Rewards (Payout)")
+        self.auto_reward_chk.toggled.connect(self._auto_save_if_loaded)
+        auto_payout_row.addWidget(self.auto_reward_chk, 1)
+        auto_form.addRow("", auto_payout_row)
 
         ca_layout.addLayout(auto_form)
         form_vbox.addWidget(card_auto)
@@ -513,7 +522,8 @@ class SidebarInspector(QFrame):
             self.delay_spin.setValue(float(cfg.get("lobbyReturnDelay", 3.0)))
             self.auto_host_chk.setChecked(bool(cfg.get("autoRoomCreation", False)))
             self.auto_close_chk.setChecked(bool(cfg.get("autoCloseRoom", False)))
-            self.auto_reward_chk.setChecked(bool(cfg.get("detectWinners", True)))
+            self.auto_winner_chk.setChecked(bool(cfg.get("detectWinners", True)))
+            self.auto_reward_chk.setChecked(bool(cfg.get("autoRewards", False)))
 
             saved_lx = cfg.get("lobbyReturnX")
             saved_ly = cfg.get("lobbyReturnY")
@@ -534,6 +544,7 @@ class SidebarInspector(QFrame):
             self.lobby_y_spin.blockSignals(False)
             self.auto_host_chk.blockSignals(False)
             self.auto_close_chk.blockSignals(False)
+            self.auto_winner_chk.blockSignals(False)
             self.auto_reward_chk.blockSignals(False)
             self._is_loading = False
 
@@ -610,7 +621,8 @@ class SidebarInspector(QFrame):
             "lobbyReturnY": round(self.lobby_y_spin.value(), 2),
             "autoRoomCreation": self.auto_host_chk.isChecked(),
             "autoCloseRoom": self.auto_close_chk.isChecked(),
-            "detectWinners": self.auto_reward_chk.isChecked(),
+            "detectWinners": self.auto_winner_chk.isChecked(),
+            "autoRewards": self.auto_reward_chk.isChecked(),
             "autoHostLeadTime": cfg.get("autoHostLeadTime", 5),
             "autoHostActions": cfg.get("autoHostActions") or p.get("autoHostActions", []),
             "cropX": p.get("cropX") if p.get("cropX") is not None else cfg.get("cropX"),

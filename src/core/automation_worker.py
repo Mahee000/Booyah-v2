@@ -259,6 +259,31 @@ class EmulatorAutomationWorker(QThread):
                             detected_winners_str = ", ".join(winners_list)
                             win_tag = "[LTW Losers]" if winner_details.get("is_ltw") else "[Winners]"
                             self.log_message.emit(self.serial, f"{win_tag} Detected: {detected_winners_str}", "MATCH")
+
+                            # Trigger Auto Rewards on Master Emulator if enabled
+                            if self.config.get("autoRewards", False):
+                                master_serial = self.config.get("autoRewardMaster") or self.config.get("autoHostMaster")
+                                if master_serial and master_serial != "None":
+                                    self.log_message.emit(
+                                        self.serial,
+                                        f"Initiating Auto Rewards for [{detected_winners_str}] on Master {master_serial}...",
+                                        "REWARD"
+                                    )
+                                    try:
+                                        from src.core.master_service import MasterCoordinatorService
+                                        m_coordinator = MasterCoordinatorService(self.service)
+                                        m_coordinator.auto_reward_match(
+                                            game_serial=self.serial,
+                                            master_serial=master_serial,
+                                            winners=winners_list,
+                                            game_mode=game_mode_label,
+                                            interval_m=int(self.config.get("logInterval", 15)),
+                                            offset_m=int(self.config.get("logOffset", 0)),
+                                            is_ltw=bool(winner_details.get("is_ltw", False)),
+                                            log_callback=lambda msg, lvl: self.log_message.emit(self.serial, msg, lvl)
+                                        )
+                                    except Exception as re:
+                                        self.log_message.emit(self.serial, f"Auto Rewards error: {re}", "ERROR")
                         else:
                             self.log_message.emit(self.serial, "Scoreboard parsed: No clear winning nicknames identified", "SCAN")
                     except Exception as we:

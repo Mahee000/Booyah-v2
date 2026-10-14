@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional, List, Tuple
 
 from src.core.emulator_service import EmulatorService
 from src.core.preset_service import get_rounded_time
+from src.core.winner_detector import are_names_similar
 
 logger = logging.getLogger(__name__)
 
@@ -284,4 +285,281 @@ class MasterCoordinatorService:
             # Return to Home Screen
             self.service.keyevent(master_serial, 4)
             log("Room ID & Password synchronized directly via UI Automator without OCR!", "SUCCESS")
+            return True
+
+    def auto_reward_match(
+        self,
+        game_serial: str,
+        master_serial: str,
+        winners: List[str],
+        game_mode: str = "Lone Wolf 2V2",
+        interval_m: int = 15,
+        offset_m: int = 0,
+        is_ltw: bool = False,
+        log_callback=None
+    ) -> bool:
+        """
+        Executes the 2-Route Auto Reward flow directly via UI Automator (0% OCR):
+        - Route 1: Verify & Mark Winners
+          1. Scroll down on Home Screen to tap 'Live Match'
+          2. Select Game Mode tab
+          3. Tap active match card matching time
+          4. Inspect player list, match names via are_names_similar, tap Edit -> Winner -> Save
+          5. Tap 'See Result Sheet'
+          6. Tap 'Submit Result' and Back
+        - Route 2: Send Reward & Payout
+          7. Return to Home Screen and tap 'Send Reward'
+          8. Select Game Mode tab
+          9. Tap completed match card
+          10. Tap 'Send All'
+          11. Tap 'CONFIRM'
+        """
+        def log(msg, lvl="REWARD"):
+            if log_callback:
+                log_callback(msg, lvl)
+            else:
+                logger.info(f"[{lvl}] {msg}")
+
+        if not master_serial or master_serial.lower() in ("none", ""):
+            log("No Master Emulator configured for Auto Rewards. Skipping.", "WARN")
+            return False
+
+        if not winners:
+            log("No winners detected from match conclusion. Skipping reward dispatch.", "WARN")
+            return False
+
+        with _master_lock:
+            log(f"Acquired Master Emulator lock for {master_serial}. Starting Auto Rewards (2-Route)...", "REWARD")
+
+            # 0. Ensure app foreground
+            import subprocess
+            subprocess.run(
+                [self.service.adb_path, "-s", master_serial, "shell", "monkey", "-p", "com.riyaz.zvyadmin", "-c", "android.intent.category.LAUNCHER", "1"],
+                capture_output=True, timeout=4
+            )
+            time.sleep(1.0)
+
+            # Determine Mode Pattern
+            mode_tab = "Lone Wolf 2V2"
+            if "lose" in game_mode.lower() or "ltw" in game_mode.lower() or is_ltw:
+                mode_tab = "Lose To Win"
+            elif "cs" in game_mode.lower() or "clash" in game_mode.lower():
+                mode_tab = "CS 4V4"
+            elif "br" in game_mode.lower() or "battle" in game_mode.lower():
+                mode_tab = "BR E-Sports PRO League"
+
+            now_ts = time.time()
+            target_times = [
+                get_rounded_time(now_ts, interval_m, offset_m),
+                get_rounded_time(now_ts - (interval_m * 60), interval_m, offset_m),
+                get_rounded_time(now_ts + (interval_m * 60), interval_m, offset_m)
+            ]
+
+            # ==========================================
+            # ROUTE 1: VERIFY & MARK WINNERS (Phases 1-6)
+            # ==========================================
+            log("=== Starting ROUTE 1: Verify & Mark Winners ===", "REWARD")
+            self.ensure_home_screen(master_serial)
+
+            # Phase 1: Scroll to bottom of Home Screen and Tap 'Live Match'
+            live_match_coords = None
+            for _ in range(3):
+                root = self.get_ui_hierarchy(master_serial)
+                if root is not None:
+                    live_match_coords = self.find_node_by_desc(root, r"^Live Match$")
+                    if live_match_coords:
+                        break
+                self.service.swipe_normalized(master_serial, 0.5, 0.85, 0.5, 0.35, 500)
+                time.sleep(0.8)
+
+            if live_match_coords:
+                log(f"Found 'Live Match' at {live_match_coords}. Tapping...", "REWARD")
+                self.service.tap(master_serial, live_match_coords[0], live_match_coords[1])
+                time.sleep(1.5)
+            else:
+                log("Could not locate 'Live Match' on Home Screen.", "ERROR")
+                self.ensure_home_screen(master_serial)
+                return False
+
+            # Phase 2: Select Game Mode Tab in Live Match
+            lm_root = self.get_ui_hierarchy(master_serial)
+            if lm_root is not None:
+                tab_coords = self.find_node_by_desc(lm_root, mode_tab)
+                if tab_coords:
+                    log(f"Found '{mode_tab}' tab at {tab_coords}. Tapping...", "REWARD")
+                    self.service.tap(master_serial, tab_coords[0], tab_coords[1])
+                    time.sleep(1.2)
+
+            # Phase 3: Find active match card by time and Tap into it
+            match_card_coords = None
+            for _ in range(3):
+                lm_match_root = self.get_ui_hierarchy(master_serial)
+                if lm_match_root is not None:
+                    # Check if match card contains target time or has Move to Match Page
+                    clean_targets = [t.replace(" ", "").upper() for t in target_times]
+                    for node in lm_match_root.iter("node"):
+                        desc = node.attrib.get("content-desc", "").replace(" ", "").upper()
+                        if any(t in desc for t in clean_targets) or "LIVE" in desc:
+                            bounds = self.parse_bounds(node.attrib.get("bounds", ""))
+                            if bounds:
+                                match_card_coords = ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
+                                break
+                    if match_card_coords:
+                        break
+                self.service.swipe_normalized(master_serial, 0.5, 0.85, 0.5, 0.40, 500)
+                time.sleep(0.8)
+
+            if match_card_coords:
+                log(f"Found active match card at {match_card_coords}. Tapping...", "REWARD")
+                self.service.tap(master_serial, match_card_coords[0], match_card_coords[1])
+                time.sleep(1.5)
+            else:
+                log("Could not find active match in Live Match view.", "WARN")
+
+            # Phase 4: Inspect players, match names & Mark Winners
+            details_root = self.get_ui_hierarchy(master_serial)
+            if details_root is not None:
+                # Iterate player items in XML
+                for node in details_root.iter("node"):
+                    desc = node.attrib.get("content-desc", "")
+                    # Player row has format "<slot>\n<player_name>\n<uid>..."
+                    lines = desc.split("\n")
+                    if len(lines) >= 2:
+                        p_name = lines[1].strip()
+                        # Check if matches any detected winner
+                        is_winner = any(are_names_similar(w, p_name) for w in winners)
+                        if is_winner:
+                            log(f"Player '{p_name}' MATCHED winner! Searching Edit button...", "REWARD")
+                            # Edit button is sibling or child
+                            bounds = self.parse_bounds(node.attrib.get("bounds", ""))
+                            if bounds:
+                                # Tap Edit button on right side of player card (x ~ 90%)
+                                edit_x = int(bounds[2] * 0.90)
+                                edit_y = (bounds[1] + bounds[3]) // 2
+                                self.service.tap(master_serial, edit_x, edit_y)
+                                time.sleep(1.0)
+
+                                # Handle Winner Popup: find 'Winner' radio/button and 'Save'
+                                popup_root = self.get_ui_hierarchy(master_serial)
+                                if popup_root is not None:
+                                    win_btn = self.find_node_by_desc(popup_root, r"Winner")
+                                    if win_btn:
+                                        self.service.tap(master_serial, win_btn[0], win_btn[1])
+                                        time.sleep(0.5)
+                                    save_btn = self.find_node_by_desc(popup_root, r"^Save$")
+                                    if save_btn:
+                                        self.service.tap(master_serial, save_btn[0], save_btn[1])
+                                        time.sleep(1.0)
+                                    else:
+                                        # Cancel / close popup if no save
+                                        self.service.keyevent(master_serial, 4)
+                                        time.sleep(0.5)
+
+            # Phase 5: Tap 'See Result Sheet'
+            sheet_root = self.get_ui_hierarchy(master_serial)
+            if sheet_root is not None:
+                sheet_btn = self.find_node_by_desc(sheet_root, r"See Result Sheet")
+                if sheet_btn:
+                    log(f"Found 'See Result Sheet' at {sheet_btn}. Tapping...", "REWARD")
+                    self.service.tap(master_serial, sheet_btn[0], sheet_btn[1])
+                    time.sleep(2.0)
+
+                    # Phase 6: Tap 'Submit Result'
+                    submit_root = self.get_ui_hierarchy(master_serial)
+                    if submit_root is not None:
+                        sub_btn = self.find_node_by_desc(submit_root, r"Submit Result")
+                        if sub_btn:
+                            log(f"Found 'Submit Result' at {sub_btn}. Tapping...", "REWARD")
+                            self.service.tap(master_serial, sub_btn[0], sub_btn[1])
+                            time.sleep(2.0)
+                            log("Result sheet submitted successfully!", "SUCCESS")
+
+            # Return to Home Screen
+            self.ensure_home_screen(master_serial)
+            time.sleep(1.5)
+
+            # ==========================================
+            # ROUTE 2: SEND REWARD & PAYOUT (Phases 7-11)
+            # ==========================================
+            log("=== Starting ROUTE 2: Send Reward & Payout ===", "REWARD")
+
+            # Phase 7: Scroll to bottom of Home Screen and Tap 'Send Reward'
+            send_reward_coords = None
+            for _ in range(3):
+                root = self.get_ui_hierarchy(master_serial)
+                if root is not None:
+                    send_reward_coords = self.find_node_by_desc(root, r"^Send Reward$")
+                    if send_reward_coords:
+                        break
+                self.service.swipe_normalized(master_serial, 0.5, 0.85, 0.5, 0.35, 500)
+                time.sleep(0.8)
+
+            if send_reward_coords:
+                log(f"Found 'Send Reward' at {send_reward_coords}. Tapping...", "REWARD")
+                self.service.tap(master_serial, send_reward_coords[0], send_reward_coords[1])
+                time.sleep(1.5)
+            else:
+                log("Could not locate 'Send Reward' on Home Screen.", "ERROR")
+                self.ensure_home_screen(master_serial)
+                return False
+
+            # Phase 8: Select Game Mode Tab in Send Reward
+            sr_root = self.get_ui_hierarchy(master_serial)
+            if sr_root is not None:
+                tab_coords = self.find_node_by_desc(sr_root, mode_tab)
+                if tab_coords:
+                    log(f"Found '{mode_tab}' tab at {tab_coords}. Tapping...", "REWARD")
+                    self.service.tap(master_serial, tab_coords[0], tab_coords[1])
+                    time.sleep(1.2)
+
+            # Phase 9: Select completed match in Send Reward list
+            completed_card_coords = None
+            for _ in range(3):
+                sr_match_root = self.get_ui_hierarchy(master_serial)
+                if sr_match_root is not None:
+                    clean_targets = [t.replace(" ", "").upper() for t in target_times]
+                    for node in sr_match_root.iter("node"):
+                        desc = node.attrib.get("content-desc", "").replace(" ", "").upper()
+                        if any(t in desc for t in clean_targets) or "COMPLETED" in desc:
+                            bounds = self.parse_bounds(node.attrib.get("bounds", ""))
+                            if bounds:
+                                completed_card_coords = ((bounds[0] + bounds[2]) // 2, (bounds[1] + bounds[3]) // 2)
+                                break
+                    if completed_card_coords:
+                        break
+                self.service.swipe_normalized(master_serial, 0.5, 0.85, 0.5, 0.40, 500)
+                time.sleep(0.8)
+
+            if completed_card_coords:
+                log(f"Found completed match card at {completed_card_coords}. Tapping...", "REWARD")
+                self.service.tap(master_serial, completed_card_coords[0], completed_card_coords[1])
+                time.sleep(1.5)
+            else:
+                log("Could not find completed match in Send Reward list.", "WARN")
+
+            # Phase 10: Tap 'Send All'
+            payout_root = self.get_ui_hierarchy(master_serial)
+            if payout_root is not None:
+                send_all_btn = self.find_node_by_desc(payout_root, r"Send All")
+                if send_all_btn:
+                    log(f"Found 'Send All' button at {send_all_btn}. Tapping...", "REWARD")
+                    self.service.tap(master_serial, send_all_btn[0], send_all_btn[1])
+                    time.sleep(1.2)
+
+                    # Phase 11: Tap 'CONFIRM'
+                    confirm_root = self.get_ui_hierarchy(master_serial)
+                    if confirm_root is not None:
+                        confirm_btn = self.find_node_by_desc(confirm_root, r"CONFIRM")
+                        if confirm_btn:
+                            log(f"Found 'CONFIRM' button at {confirm_btn}. Tapping...", "REWARD")
+                            self.service.tap(master_serial, confirm_btn[0], confirm_btn[1])
+                            time.sleep(2.0)
+                            log("Full Auto Rewards sequence completed successfully! All payouts sent.", "SUCCESS")
+                else:
+                    # Might already be 'All Sent'
+                    if self.find_node_by_desc(payout_root, r"All Sent"):
+                        log("Match already marked 'All Sent'. Payouts previously completed.", "SUCCESS")
+
+            # Clean exit back to Home Screen
+            self.ensure_home_screen(master_serial)
             return True

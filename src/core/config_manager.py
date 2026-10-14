@@ -34,6 +34,11 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "autoHostActions": [],
     # Auto Close Room Settings
     "autoCloseRoom": False,
+    # Auto Rewards & Winner Detection Settings
+    "detectWinners": True,
+    "autoRewards": False,
+    "gameModeType": "Lone Wolf 2V2",
+    "autoRewardMaster": "None",
 }
 
 SETTINGS_FILE = os.path.join(WORKSPACE_DIR, "app_settings.json")

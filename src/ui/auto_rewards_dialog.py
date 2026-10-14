@@ -52,17 +52,51 @@ class AutoRewardsDialog(QDialog):
         desc_lbl.setStyleSheet("color: #8b949e; font-size: 12px; line-height: 1.4;")
         vbox.addWidget(desc_lbl)
 
-        # Enable Toggle Row
+        # Enable Toggle Rows Card
         toggle_frame = QFrame()
         toggle_frame.setStyleSheet("QFrame { background-color: #161b22; border: 1px solid #262c36; border-radius: 6px; }")
-        t_layout = QHBoxLayout(toggle_frame)
-        t_layout.setContentsMargins(14, 10, 14, 10)
+        t_layout = QVBoxLayout(toggle_frame)
+        t_layout.setContentsMargins(14, 12, 14, 12)
+        t_layout.setSpacing(10)
 
         self.enable_chk = QCheckBox("Enable Winner Detection upon Match Conclusion")
         self.enable_chk.setChecked(bool(self.cfg.get("detectWinners", True)))
         self.enable_chk.setStyleSheet("font-weight: 600; color: #38bdf8; font-size: 12px;")
         t_layout.addWidget(self.enable_chk)
-        t_layout.addStretch()
+
+        self.auto_reward_chk = QCheckBox("Enable Auto Rewards on Master Emulator (Verify & Payout)")
+        self.auto_reward_chk.setChecked(bool(self.cfg.get("autoRewards", False)))
+        self.auto_reward_chk.setStyleSheet("font-weight: 600; color: #4ade80; font-size: 12px;")
+        t_layout.addWidget(self.auto_reward_chk)
+
+        # Master Emulator Selection Row
+        master_row = QHBoxLayout()
+        master_row.setSpacing(8)
+        master_lbl = QLabel("Master Emulator:")
+        master_lbl.setStyleSheet("color: #c9d1d9; font-size: 12px; font-weight: 600;")
+        master_row.addWidget(master_lbl)
+
+        self.master_combo = QComboBox()
+        self.master_combo.addItem("None (Disabled)", "None")
+        try:
+            from src.core.emulator_service import EmulatorService
+            svc = EmulatorService()
+            connected = svc.get_connected_devices(auto_scan=False)
+            for dev in connected:
+                d_serial = dev["serial"]
+                if d_serial != self.serial:
+                    self.master_combo.addItem(f"{dev.get('alias', d_serial)} ({d_serial})", d_serial)
+        except Exception:
+            pass
+
+        saved_master = self.cfg.get("autoRewardMaster") or self.cfg.get("autoHostMaster") or "None"
+        idx = self.master_combo.findData(saved_master)
+        if idx >= 0:
+            self.master_combo.setCurrentIndex(idx)
+        self.master_combo.setFixedHeight(28)
+        master_row.addWidget(self.master_combo, 1)
+        t_layout.addLayout(master_row)
+
         vbox.addWidget(toggle_frame)
 
         # Mode Selection Card
@@ -230,6 +264,10 @@ class AutoRewardsDialog(QDialog):
 
     def _save(self):
         self.cfg["detectWinners"] = self.enable_chk.isChecked()
+        self.cfg["autoRewards"] = self.auto_reward_chk.isChecked()
         self.cfg["gameModeType"] = self.mode_combo.currentText()
+        master_val = self.master_combo.currentData()
+        if master_val:
+            self.cfg["autoRewardMaster"] = master_val
         save_node_config(self.serial, self.cfg)
         self.accept()

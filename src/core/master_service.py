@@ -419,41 +419,105 @@ class MasterCoordinatorService:
             # Phase 4: Inspect players, match names & Mark Winners
             details_root = self.get_ui_hierarchy(master_serial)
             if details_root is not None:
-                # Iterate player items in XML
+                # 1. Parse all registered players from ZVY Admin match details
+                registered_players = []
                 for node in details_root.iter("node"):
                     desc = node.attrib.get("content-desc", "")
-                    # Player row has format "<slot>\n<player_name>\n<uid>..."
-                    lines = desc.split("\n")
-                    if len(lines) >= 2:
-                        p_name = lines[1].strip()
-                        # Check if matches any detected winner
-                        is_winner = any(are_names_similar(w, p_name) for w in winners)
-                        if is_winner:
-                            log(f"Player '{p_name}' MATCHED winner! Searching Edit button...", "REWARD")
-                            # Edit button is sibling or child
-                            bounds = self.parse_bounds(node.attrib.get("bounds", ""))
-                            if bounds:
-                                # Tap Edit button on right side of player card (x ~ 90%)
-                                edit_x = int(bounds[2] * 0.90)
-                                edit_y = (bounds[1] + bounds[3]) // 2
-                                self.service.tap(master_serial, edit_x, edit_y)
-                                time.sleep(1.0)
+                    lines = [ln.strip() for ln in desc.split("\n") if ln.strip()]
+                    # Format in ZVY Admin: "<slot_number>\n<player_ign>\n<uid>..."
+                    if len(lines) >= 2 and lines[0].isdigit():
+                        slot_num = int(lines[0])
+                        p_name = lines[1]
+                        bounds = self.parse_bounds(node.attrib.get("bounds", ""))
+                        if bounds:
+                            registered_players.append({
+                                "slot": slot_num,
+                                "name": p_name,
+                                "bounds": bounds,
+                                "node": node
+                            })
 
-                                # Handle Winner Popup: find 'Winner' radio/button and 'Save'
-                                popup_root = self.get_ui_hierarchy(master_serial)
-                                if popup_root is not None:
-                                    win_btn = self.find_node_by_desc(popup_root, r"Winner")
-                                    if win_btn:
-                                        self.service.tap(master_serial, win_btn[0], win_btn[1])
-                                        time.sleep(0.5)
-                                    save_btn = self.find_node_by_desc(popup_root, r"^Save$")
-                                    if save_btn:
-                                        self.service.tap(master_serial, save_btn[0], save_btn[1])
-                                        time.sleep(1.0)
-                                    else:
-                                        # Cancel / close popup if no save
-                                        self.service.keyevent(master_serial, 4)
-                                        time.sleep(0.5)
+                log(f"Parsed {len(registered_players)} registered players in match details: {[(p['slot'], p['name']) for p in registered_players]}", "REWARD")
+
+                # 2. Define Team Groups based on Game Mode
+                is_cs = "cs" in game_mode.lower() or "clash" in game_mode.lower()
+                if is_cs:
+                    # Clash Squad 4v4: Team 1 = [1, 3, 5, 7], Team 2 = [2, 4, 6, 8]
+                    team_groups = [[1, 3, 5, 7], [2, 4, 6, 8]]
+                elif "2v2" in game_mode.lower() or "lone" in game_mode.lower() or "lose" in game_mode.lower():
+                    # Lone Wolf 2v2: Team 1 = [1, 3], Team 2 = [2, 4]
+                    team_groups = [[1, 3], [2, 4]]
+                else:
+                    team_groups = [[1], [2]]
+
+                # 3. Identify directly matched players using are_names_similar
+                matched_players = []
+                for p in registered_players:
+                    for w in winners:
+                        if are_names_similar(w, p["name"]):
+                            matched_players.append(p)
+                            break
+
+                log(f"Directly matched winning players: {[(p['slot'], p['name']) for p in matched_players]}", "REWARD")
+
+                # 4. Resolve the Winning Team Group ([1,3,5,7] vs [2,4,6,8] or [1,3] vs [2,4])
+                winning_group = None
+                matched_slots = [p["slot"] for p in matched_players]
+
+                if matched_slots:
+                    # Count how many matched slots belong to each group
+                    counts = []
+                    for grp in team_groups:
+                        c = sum(1 for s in matched_slots if s in grp)
+                        counts.append((c, grp))
+                    counts.sort(key=lambda x: x[0], reverse=True)
+                    if counts[0][0] > 0:
+                        winning_group = counts[0][1]
+
+                if not winning_group and team_groups:
+                    winning_group = team_groups[0]
+
+                log(f"Resolved winning team group: {winning_group}", "REWARD")
+
+                # 5. Filter Players To Reward:
+                # User Requirement: If a player was NOT mentioned in-game (e.g. 4v3 where only 3 played/won),
+                # ONLY the actual mentioned/active winning players are rewarded!
+                # If direct name matches exist, reward only those belonging to the winning group.
+                players_to_reward = []
+                if matched_players:
+                    # Only reward players who actually matched the in-game scoreboard winners and belong to winning group
+                    players_to_reward = [p for p in matched_players if p["slot"] in winning_group]
+                    if not players_to_reward:
+                        players_to_reward = matched_players
+                else:
+                    # Fallback: if names were highly stylized and OCR missed exact matching, reward winning group members present
+                    players_to_reward = [p for p in registered_players if p["slot"] in winning_group]
+
+                log(f"Final players to reward ({len(players_to_reward)} players): {[(p['slot'], p['name']) for p in players_to_reward]}", "REWARD")
+
+                # 6. Execute Edit -> Winner -> Save on each rewarded player
+                for p in players_to_reward:
+                    bounds = p["bounds"]
+                    edit_x = int(bounds[2] * 0.90)
+                    edit_y = (bounds[1] + bounds[3]) // 2
+                    log(f"Tapping Edit button for Slot {p['slot']} ({p['name']}) at ({edit_x}, {edit_y})...", "REWARD")
+                    self.service.tap(master_serial, edit_x, edit_y)
+                    time.sleep(1.0)
+
+                    # Handle Winner Popup: find 'Winner' radio/button and 'Save'
+                    popup_root = self.get_ui_hierarchy(master_serial)
+                    if popup_root is not None:
+                        win_btn = self.find_node_by_desc(popup_root, r"Winner")
+                        if win_btn:
+                            self.service.tap(master_serial, win_btn[0], win_btn[1])
+                            time.sleep(0.5)
+                        save_btn = self.find_node_by_desc(popup_root, r"^Save$")
+                        if save_btn:
+                            self.service.tap(master_serial, save_btn[0], save_btn[1])
+                            time.sleep(1.0)
+                        else:
+                            self.service.keyevent(master_serial, 4)
+                            time.sleep(0.5)
 
             # Phase 5: Tap 'See Result Sheet'
             sheet_root = self.get_ui_hierarchy(master_serial)

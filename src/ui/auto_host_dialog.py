@@ -395,7 +395,7 @@ class AutoHostDialog(QDialog):
         desc.setStyleSheet("color: #8b949e; font-size: 12px; line-height: 1.4;")
         layout.addWidget(desc)
 
-        # Match Scheduler Card
+        # Master Controller & Room Credentials Card
         sched_card = QFrame()
         sched_card.setObjectName("SchedCard")
         sched_card.setStyleSheet("QFrame#SchedCard { background-color: #161b22; border: 1px solid #262c36; border-radius: 6px; }")
@@ -403,7 +403,7 @@ class AutoHostDialog(QDialog):
         s_layout.setContentsMargins(14, 12, 14, 12)
         s_layout.setSpacing(10)
 
-        s_title = QLabel("MATCH TIME SCHEDULER & MASTER EMULATOR")
+        s_title = QLabel("MATCH TIME SCHEDULER & ROOM CREDENTIALS")
         s_title.setStyleSheet("color: #fbbf24; font-size: 11px; font-weight: 700; letter-spacing: 0.8px;")
         s_layout.addWidget(s_title)
 
@@ -435,7 +435,7 @@ class AutoHostDialog(QDialog):
         self.master_combo = QComboBox()
         self.master_combo.addItem("None (Standalone Node)", "None")
         try:
-            connected = self.service.get_connected_devices()
+            connected = self.service.get_connected_devices(auto_scan=False)
             for dev in connected:
                 d_serial = dev["serial"]
                 if d_serial != self.serial:
@@ -453,9 +453,89 @@ class AutoHostDialog(QDialog):
         master_row.addStretch()
         s_layout.addLayout(master_row)
 
+        # Explicit Room Password Field
+        pw_row = QHBoxLayout()
+        pw_row.setSpacing(10)
+        pw_lbl = QLabel("Room Password:")
+        pw_lbl.setStyleSheet("color: #c9d1d9; font-size: 12px; font-weight: 500;")
+        pw_row.addWidget(pw_lbl)
+
+        # Try to extract current password from text step or config
+        existing_pw = self.config.get("autoHostPassword", "")
+        if not existing_pw:
+            for step in self.actions:
+                if step.get("type") == "text" and step.get("text"):
+                    existing_pw = str(step["text"]).strip()
+                    break
+
+        self.room_password_edit = QLineEdit()
+        self.room_password_edit.setPlaceholderText("e.g. 123 or leave blank")
+        self.room_password_edit.setText(existing_pw)
+        self.room_password_edit.setFixedHeight(30)
+        self.room_password_edit.setMinimumWidth(220)
+        self.room_password_edit.setStyleSheet(
+            "QLineEdit { background-color: #0b0e14; color: #f0f6fc; border: 1px solid #30363d; border-radius: 4px; padding: 4px 8px; }"
+        )
+        pw_row.addWidget(self.room_password_edit)
+        pw_row.addStretch()
+        s_layout.addLayout(pw_row)
+
+        # Copy Room ID Button Coordinate Row
+        copy_row = QHBoxLayout()
+        copy_row.setSpacing(10)
+        copy_lbl = QLabel("Copy Room ID Button:")
+        copy_lbl.setStyleSheet("color: #c9d1d9; font-size: 12px; font-weight: 500;")
+        copy_row.addWidget(copy_lbl)
+
+        _lbl_s = "color: #8b949e; font-size: 11px; font-weight: 600;"
+        copy_row.addWidget(QLabel("X %:", styleSheet=_lbl_s))
+        self.copy_x_spin = QDoubleSpinBox()
+        self.copy_x_spin.setRange(0.0, 100.0)
+        self.copy_x_spin.setDecimals(1)
+        self.copy_x_spin.setSuffix("%")
+        self.copy_x_spin.setValue(float(self.config.get("autoHostClickX", 0.5) or 0.5) * 100.0)
+        self.copy_x_spin.setFixedHeight(30)
+        self.copy_x_spin.setFixedWidth(80)
+        self.copy_x_spin.lineEdit().setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        copy_row.addWidget(self.copy_x_spin)
+
+        copy_row.addWidget(QLabel("Y %:", styleSheet=_lbl_s))
+        self.copy_y_spin = QDoubleSpinBox()
+        self.copy_y_spin.setRange(0.0, 100.0)
+        self.copy_y_spin.setDecimals(1)
+        self.copy_y_spin.setSuffix("%")
+        self.copy_y_spin.setValue(float(self.config.get("autoHostClickY", 0.5) or 0.5) * 100.0)
+        self.copy_y_spin.setFixedHeight(30)
+        self.copy_y_spin.setFixedWidth(80)
+        self.copy_y_spin.lineEdit().setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        copy_row.addWidget(self.copy_y_spin)
+
+        pick_copy_btn = QPushButton("Pick On Screen")
+        pick_copy_btn.setFixedHeight(30)
+        pick_copy_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #21262d;
+                color: #58a6ff;
+                border: 1px solid #30363d;
+                border-radius: 4px;
+                font-size: 11px;
+                font-weight: 600;
+                padding: 0 10px;
+            }
+            QPushButton:hover {
+                background-color: #30363d;
+                color: #ffffff;
+                border-color: #58a6ff;
+            }
+        """)
+        pick_copy_btn.clicked.connect(self._pick_copy_coords)
+        copy_row.addWidget(pick_copy_btn)
+        copy_row.addStretch()
+        s_layout.addLayout(copy_row)
+
         sched_hint = QLabel(
-            "When room creation completes, Room ID and Password will be automatically copied "
-            "and synchronized to the selected Master Emulator via OCR."
+            "Once room creation finishes, Booyah taps the 'Copy Room ID' button to retrieve the ID, "
+            "then automatically sends it along with the password to the Master Emulator."
         )
         sched_hint.setWordWrap(True)
         sched_hint.setStyleSheet("color: #8b949e; font-size: 11px;")
@@ -712,10 +792,42 @@ class AutoHostDialog(QDialog):
             f"Loaded {len(self.actions)}-step base room creation macro for {mode} mode.\nYou can now adjust the steps and save."
         )
 
+    def _pick_copy_coords(self):
+        frame = self.service.capture_frame(self.serial)
+        if not frame:
+            QMessageBox.warning(self, "Capture Failed", f"Could not capture frame from {self.serial}.")
+            return
+        from src.ui.point_calibrator_dialog import PointCalibratorDialog
+        init_c = (self.copy_x_spin.value() / 100.0, self.copy_y_spin.value() / 100.0)
+        dlg = PointCalibratorDialog(frame, "Pick 'Copy Room ID' Button on Screen", initial_coords=init_c, parent=self)
+        if dlg.exec():
+            nx, ny = dlg.selected_coords
+            self.copy_x_spin.setValue(round(nx * 100.0, 1))
+            self.copy_y_spin.setValue(round(ny * 100.0, 1))
+
     def _save_sequence(self):
         self._sync_actions_from_ui()
         self.config["autoHostActions"] = self.actions
         self.config["autoHostLeadTime"] = self.lead_time_spin.value()
         self.config["autoHostMaster"] = self.master_combo.currentData()
+        
+        # Save explicit password and copy coords
+        pw = self.room_password_edit.text().strip()
+        self.config["autoHostPassword"] = pw
+        self.config["autoHostClickX"] = round(self.copy_x_spin.value() / 100.0, 3)
+        self.config["autoHostClickY"] = round(self.copy_y_spin.value() / 100.0, 3)
+        
+        # If password given and no text step exists, or update existing text step
+        text_step = None
+        for step in self.actions:
+            if step.get("type") == "text":
+                text_step = step
+                break
+        if text_step and pw:
+            text_step["text"] = pw
+        elif pw and not text_step:
+            self.actions.append({"type": "text", "text": pw, "delay": 1.5})
+            self.config["autoHostActions"] = self.actions
+
         save_node_config(self.serial, self.config)
         self.accept()

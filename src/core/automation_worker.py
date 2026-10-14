@@ -463,25 +463,43 @@ class EmulatorAutomationWorker(QThread):
                         from src.core.master_service import MasterCoordinatorService
                         master_svc = MasterCoordinatorService(self.service)
                         
-                        # Extract password from text step if defined
-                        room_pw = ""
-                        for step in steps:
-                            if step.get("type") == "text":
-                                room_pw = str(step.get("text", "")).strip()
-                                break
+                        # Extract password from config or text step
+                        room_pw = self.config.get("autoHostPassword", "")
+                        if not room_pw:
+                            for step in steps:
+                                if step.get("type") == "text":
+                                    room_pw = str(step.get("text", "")).strip()
+                                    break
                         
-                        # Read Room ID from clipboard or screen
+                        # Tap Copy Room ID button on the Game Emulator
+                        copy_x = self.config.get("autoHostClickX")
+                        copy_y = self.config.get("autoHostClickY")
+                        if copy_x is not None and copy_y is not None:
+                            self.log_message.emit(self.serial, f"AUTO_HOST: Tapping 'Copy Room ID' button at [{float(copy_x)*100:.1f}%, {float(copy_y)*100:.1f}%]...", "AUTO_HOST")
+                            for _ in range(2):
+                                self.service.tap_normalized(self.serial, float(copy_x), float(copy_y))
+                                self.msleep(600)
+
+                        # Read Room ID from clipboard
                         room_id = ""
                         try:
                             from PyQt6.QtWidgets import QApplication
                             cb = QApplication.clipboard()
-                            if cb:
-                                raw_cb = cb.text().strip()
-                                m = re.search(r'\b\d{5,10}\b', raw_cb)
-                                if m:
-                                    room_id = m.group(0)
+                            for _ in range(5):
+                                if cb:
+                                    raw_cb = cb.text().strip()
+                                    m = re.search(r'\b\d{5,10}\b', raw_cb)
+                                    if m:
+                                        room_id = m.group(0)
+                                        break
+                                self.msleep(400)
                         except Exception:
                             pass
+                        
+                        if room_id:
+                            self.log_message.emit(self.serial, f"AUTO_HOST: Copied Room ID: '{room_id}'", "SUCCESS")
+                        else:
+                            self.log_message.emit(self.serial, "AUTO_HOST WARN: Could not read Room ID from clipboard.", "WARN")
                         
                         game_mode_label = self.config.get("gameModeType", "Lone Wolf 2V2")
                         interval_m = int(self.config.get("logInterval", 15))
